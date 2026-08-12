@@ -1,4 +1,5 @@
-import { getDb } from './db';
+import { getDb, closeDb, DB_PATH } from './db';
+import { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -706,6 +707,11 @@ export function getUserById(id: string): Omit<UserRow, 'passwordHash'> | null {
   };
 }
 
+export function getPasswordHashByUserId(id: string): string | null {
+  const row = getDb().prepare('SELECT password_hash FROM users WHERE id = ?').get(id) as Record<string, any> | undefined;
+  return row ? row.password_hash : null;
+}
+
 export function createUser(input: { name: string; username: string; passwordHash: string; designation: string; active?: number }): void {
   const id = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   getDb()
@@ -990,6 +996,64 @@ export function backupDatabase(): string | null {
   } catch (e) {
     console.error('Backup failed', e);
     return null;
+  }
+}
+
+/** Validate that a file is a usable SQLite database with our schema. Returns an error message or null. */
+export function validateSqliteFile(filePath: string): string | null {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (buf.length < 100 || buf.subarray(0, 15).toString('latin1') !== 'SQLite format 3') {
+      return 'Not a valid SQLite database file';
+    }
+    const probe = new DatabaseSync(filePath, { readOnly: true });
+    try {
+      const integrity = probe.prepare('PRAGMA integrity_check').get() as { integrity_check: string };
+      if (!integrity || integrity.integrity_check !== 'ok') {
+        return 'Database integrity check failed';
+      }
+      const tables = new Set(
+        (probe.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map((r) => r.name)
+      );
+      const required = ['websites', 'leads', 'users', 'website_audits'];
+      const missing = required.filter((t) => !tables.has(t));
+      if (missing.length > 0) {
+        return `Imported file is missing required tables: ${missing.join(', ')}`;
+      }
+    } finally {
+      probe.close();
+    }
+    return null;
+  } catch (e: any) {
+    return `Could not read database file: ${e?.message || 'unknown error'}`;
+  }
+}
+
+/** Replace the live database with the given SQLite file (safe swap with restore-on-failure). */
+export function restoreDatabaseFromFile(filePath: string): void {
+  const safety = backupDatabase();
+  closeDb();
+  try {
+    const wal = `${DB_PATH}-wal`;
+    const shm = `${DB_PATH}-shm`;
+    if (fs.existsSync(wal)) fs.rmSync(wal, { force: true });
+    if (fs.existsSync(shm)) fs.rmSync(shm, { force: true });
+    fs.copyFileSync(filePath, DB_PATH);
+    getDb(); // reopen (runs schema + migrations)
+    seedDefaultData();
+    sweepOrphanedAudits();
+    seedClientsFromWonLeads();
+  } catch (e) {
+    closeDb();
+    if (safety) {
+      try {
+        fs.copyFileSync(safety, DB_PATH);
+        getDb();
+      } catch (restoreErr) {
+        console.error('Failed to restore from safety backup after import error', restoreErr);
+      }
+    }
+    throw e;
   }
 }
 

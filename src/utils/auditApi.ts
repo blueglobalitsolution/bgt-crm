@@ -229,4 +229,40 @@ export const auditApi = {
       method: 'POST',
       body: JSON.stringify({ leadId, client }),
     }),
+
+  // ── Database export / import (admin + password) ──
+  exportDatabase: async (password: string): Promise<{ blob: Blob; filename: string }> => {
+    const token = getAuthToken();
+    const res = await fetch('/api/admin/db/export', {
+      headers: { Authorization: token ? `Bearer ${token}` : '', 'X-DB-Password': password },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Export failed (${res.status})`);
+    }
+    const disposition = res.headers.get('content-disposition') || '';
+    const match = /filename="?([^"]+)"?/.exec(disposition);
+    const filename = match ? match[1] : `bgt-crm-db-${Date.now()}.db`;
+    return { blob: await res.blob(), filename };
+  },
+
+  importDatabase: async (file: File | Blob, password: string): Promise<{ ok: true }> => {
+    const token = getAuthToken();
+    const res = await fetch('/api/admin/db/import', {
+      method: 'POST',
+      headers: {
+        Authorization: token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/octet-stream',
+        'X-DB-Password': password,
+      },
+      body: file,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(body.error || `Import failed (${res.status})`) as Error & { status?: number };
+      err.status = res.status;
+      throw err;
+    }
+    return { ok: true };
+  },
 };

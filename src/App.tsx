@@ -17,7 +17,6 @@ import { WebsiteAuditView } from './components/WebsiteAuditView';
 import { SettingsView } from './components/SettingsView';
 import { DatacenterView } from './components/DatacenterView';
 import { UsersView } from './components/UsersView';
-import { WhatsAppWidget } from './components/WhatsAppWidget';
 import { useAuditMonitor } from './hooks/useAuditMonitor';
 import { Lead } from './types';
 import { Menu, Plus, FileSpreadsheet, Loader2, LogOut, ShieldCheck } from 'lucide-react';
@@ -290,9 +289,6 @@ const MainAppContent: React.FC = () => {
           setCommMode(null);
         }}
       />
-
-      {/* Floating WhatsApp composer widget (right side) */}
-      <WhatsAppWidget />
     </div>
   );
 };

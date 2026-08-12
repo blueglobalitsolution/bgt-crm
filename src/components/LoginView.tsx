@@ -29,9 +29,11 @@ export const LoginView: React.FC = () => {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-600/30 mb-3">
-            BGT
-          </div>
+          <img
+            src="/logo.png"
+            alt="BGT CRM logo"
+            className="w-16 h-16 object-contain mb-3"
+          />
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">BGT CRM</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Digital Marketing Agency — Sign in to continue

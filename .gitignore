@@ -16,3 +16,6 @@ __pycache__/
 
 # Database backups (contain customer data)
 backups/
+
+# Temporary DB import files (contain customer data)
+imports/

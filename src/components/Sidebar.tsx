@@ -107,9 +107,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
-              BGT
-            </div>
+            <img
+              src="/logo.png"
+              alt="BGT CRM logo"
+              className="w-10 h-10 object-contain rounded-lg"
+            />
             <div>
               <h1 className="font-bold text-lg leading-snug tracking-tight text-white flex items-center gap-1.5">
                 BGT CRM
