@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# SQLite website audit database (generated at runtime)
+database/crm.db
+database/crm.db-shm
+database/crm.db-wal
+__pycache__/
+*.pyc
+
+# Database backups (contain customer data)
+backups/

@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* react-day-picker dark mode overrides */
+.dark .rdp {
+  --rdp-accent-color: #3b82f6;
+  --rdp-accent-background-color: rgba(59, 130, 246, 0.25);
+}
+.dark .rdp button {
+  color: #cbd5e1;
+}
+.dark .rdp-day_selected,
+.dark .rdp-day_selected:hover {
+  color: #fff;
+}
+.dark .rdp-head_cell {
+  color: #94a3b8;
+}
+

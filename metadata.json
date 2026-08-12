@@ -1,0 +1,6 @@
+{
+  "name": "BGT CRM",
+  "description": "Digital Marketing CRM with lead tracking, Excel import, follow-ups, pipeline kanban, and AI lead insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
