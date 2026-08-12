@@ -31,6 +31,7 @@ export const DIGITAL_MARKETING_SERVICES = [
   'Hosting',
   'Maintenance',
   'Mobile App Development',
+  'Software Development',
   'Other',
 ] as const;
 
