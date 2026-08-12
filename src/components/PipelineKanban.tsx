@@ -141,13 +141,13 @@ export const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => onOpenComm(lead, 'Call')}
-                            className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
+                            className="p-2 rounded text-emerald-600 hover:bg-emerald-50"
                           >
                             <Phone className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => onOpenComm(lead, 'WhatsApp')}
-                            className="p-1 rounded text-green-600 hover:bg-green-50"
+                            className="p-2 rounded text-green-600 hover:bg-green-50"
                           >
                             <MessageSquare className="w-3 h-3" />
                           </button>
@@ -159,7 +159,7 @@ export const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                             <button
                               onClick={() => setConvertLead(lead)}
                               title="Convert to Client"
-                              className="p-1 rounded text-emerald-600 hover:bg-emerald-50"
+                              className="p-2 rounded text-emerald-600 hover:bg-emerald-50"
                             >
                               <Briefcase className="w-3.5 h-3.5" />
                             </button>
@@ -168,7 +168,7 @@ export const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                             <button
                               onClick={() => moveStage(lead.id, lead.status, 'prev')}
                               title="Move to previous stage"
-                              className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              className="p-2 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
                               <ChevronLeft className="w-3.5 h-3.5" />
                             </button>
@@ -177,7 +177,7 @@ export const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                             <button
                               onClick={() => moveStage(lead.id, lead.status, 'next')}
                               title="Move to next stage"
-                              className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              className="p-2 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>

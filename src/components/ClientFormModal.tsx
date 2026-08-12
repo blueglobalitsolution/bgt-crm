@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, UserRound, Briefcase } from 'lucide-react';
-import { Lead, Client, DIGITAL_MARKETING_SERVICES } from '../types';
+import { X, Loader2, UserRound, Briefcase, Plus, Trash2 } from 'lucide-react';
+import { Lead, Client, DIGITAL_MARKETING_SERVICES, SUBSCRIPTION_TYPES } from '../types';
 import { auditApi } from '../utils/auditApi';
 import { useAuth } from '../context/AuthContext';
+
+interface SubDraft {
+  key: string;
+  id?: string;
+  service: string;
+  billingType: string;
+  amount: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -14,6 +25,9 @@ interface ClientFormModalProps {
 
 const inputCls =
   'w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100';
+
+let subKeySeq = 0;
+const newSubKey = () => `sub-${Date.now()}-${subKeySeq++}`;
 
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, client, onClose, onSaved }) => {
   const { users } = useAuth();
@@ -33,6 +47,17 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
   const [accountManager, setAccountManager] = useState('');
   const [agreementStatus, setAgreementStatus] = useState('Active');
   const [notes, setNotes] = useState('');
+  const [subscriptions, setSubscriptions] = useState<SubDraft[]>([]);
+
+  const emptySub = (): SubDraft => ({
+    key: newSubKey(),
+    service: 'Social Media Marketing',
+    billingType: 'Monthly',
+    amount: '',
+    startDate: '',
+    endDate: '',
+    status: 'Active',
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,6 +77,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
       setAccountManager(client?.accountManager || lead?.assignedTo || '');
       setAgreementStatus(client?.agreementStatus || 'Active');
       setNotes(client?.notes || '');
+      setSubscriptions(
+        (client?.subscriptions || []).map((s) => ({
+          key: newSubKey(),
+          id: s.id,
+          service: s.service,
+          billingType: s.billingType,
+          amount: String(s.amount || ''),
+          startDate: s.startDate || '',
+          endDate: s.endDate || '',
+          status: s.status || 'Active',
+        }))
+      );
     } else {
       setCompanyName('');
       setContactPerson('');
@@ -66,10 +103,19 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
       setAccountManager('');
       setAgreementStatus('Active');
       setNotes('');
+      setSubscriptions([emptySub()]);
     }
   }, [isOpen, lead, client]);
 
   if (!isOpen) return null;
+
+  const updateSub = (key: string, patch: Partial<SubDraft>) => {
+    setSubscriptions((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  };
+
+  const removeSub = (key: string) => {
+    setSubscriptions((prev) => prev.filter((s) => s.key !== key));
+  };
 
   const toggleService = (srv: string) => {
     setServices((prev) => (prev.includes(srv) ? prev.filter((s) => s !== srv) : [...prev, srv]));
@@ -99,11 +145,35 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
         agreementStatus,
         notes: notes.trim() || undefined,
       };
+      let savedClientId: string | null = null;
       if (client) {
         await auditApi.updateClient(client.id, { ...client, ...payload } as Client);
+        savedClientId = client.id;
       } else if (lead) {
-        await auditApi.convertLeadToClient(lead.id, payload);
+        const conv = await auditApi.convertLeadToClient(lead.id, payload);
+        savedClientId = conv.client.id;
       }
+
+      // Sync subscriptions (create new, update existing, delete removed)
+      if (savedClientId) {
+        const draftIds = subscriptions.map((s) => s.id).filter((id): id is string => Boolean(id));
+        for (const sub of client?.subscriptions || []) {
+          if (!draftIds.includes(sub.id)) await auditApi.deleteSubscription(sub.id);
+        }
+        for (const row of subscriptions) {
+          const subPayload = {
+            service: row.service,
+            billingType: row.billingType,
+            amount: Number(row.amount) || 0,
+            startDate: row.startDate || undefined,
+            endDate: row.endDate || undefined,
+            status: row.status || 'Active',
+          };
+          if (row.id) await auditApi.updateSubscription(row.id, subPayload);
+          else await auditApi.createSubscription({ clientId: savedClientId, ...subPayload });
+        }
+      }
+
       onSaved();
       onClose();
     } catch (err: any) {
@@ -217,6 +287,105 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Service Subscriptions */}
+          <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">
+                Service Subscriptions
+              </label>
+              <button
+                type="button"
+                onClick={() => setSubscriptions((prev) => [...prev, emptySub()])}
+                className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Service
+              </button>
+            </div>
+            <p className="text-[10px] text-indigo-500 dark:text-indigo-400">
+              List each service the customer is taking, with its billing type, amount and dates.
+            </p>
+
+            {subscriptions.length === 0 && (
+              <p className="text-[11px] text-slate-400 italic">No subscriptions added yet.</p>
+            )}
+
+            {subscriptions.map((sub) => (
+              <div key={sub.key} className="bg-white dark:bg-slate-900 border border-indigo-200/70 dark:border-indigo-900/50 rounded-xl p-2.5 space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Service</label>
+                    <select
+                      value={sub.service}
+                      onChange={(e) => updateSub(sub.key, { service: e.target.value })}
+                      className={inputCls}
+                    >
+                      {DIGITAL_MARKETING_SERVICES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                      <option value="Monthly Retainer">Monthly Retainer</option>
+                      <option value="Project / One-Time">Project / One-Time</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Billing Type</label>
+                    <select
+                      value={sub.billingType}
+                      onChange={(e) => updateSub(sub.key, { billingType: e.target.value })}
+                      className={inputCls}
+                    >
+                      {SUBSCRIPTION_TYPES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Amount (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={sub.amount}
+                      onChange={(e) => updateSub(sub.key, { amount: e.target.value })}
+                      className={inputCls}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Status</label>
+                    <select
+                      value={sub.status}
+                      onChange={(e) => updateSub(sub.key, { status: e.target.value })}
+                      className={inputCls}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Expired">Expired</option>
+                      <option value="Ended">Ended</option>
+                      <option value="Paused">Paused</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">Start Date</label>
+                    <input type="date" value={sub.startDate} onChange={(e) => updateSub(sub.key, { startDate: e.target.value })} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-0.5">End Date</label>
+                    <input type="date" value={sub.endDate} onChange={(e) => updateSub(sub.key, { endDate: e.target.value })} className={inputCls} />
+                  </div>
+                  <div className="sm:col-span-3 flex items-end justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeSub(sub.key)}
+                      className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1 px-2 py-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div>

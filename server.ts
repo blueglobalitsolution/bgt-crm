@@ -9,7 +9,7 @@ import { usersRouter } from './routes/users';
 import { leadsRouter } from './routes/leads';
 import { adminRouter } from './routes/admin';
 import { clientsRouter } from './routes/clients';
-import { seedDefaultData, sweepOrphanedAudits, backupDatabase, seedClientsFromWonLeads } from './database/repository';
+import { seedDefaultData, sweepOrphanedAudits, backupDatabase, seedClientsFromWonLeads, seedClientSubscriptions } from './database/repository';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +41,12 @@ async function startServer() {
   const clientsSeeded = seedClientsFromWonLeads();
   if (clientsSeeded > 0) {
     console.log(`Clients: created ${clientsSeeded} client record(s) from Won leads.`);
+  }
+
+  // One-time migration: create subscriptions from existing client retainer/contract data
+  const subsSeeded = seedClientSubscriptions();
+  if (subsSeeded > 0) {
+    console.log(`Subscriptions: created ${subsSeeded} subscription row(s) from client data.`);
   }
 
   // Daily SQLite backup

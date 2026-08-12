@@ -1171,6 +1171,125 @@ export function deleteClient(id: string): void {
   getDb().prepare('DELETE FROM clients WHERE id = ?').run(id);
 }
 
+// ─── Client subscriptions ──────────────────────────────────────────────────
+
+export interface ClientSubscriptionRow {
+  id: string;
+  clientId: string;
+  service: string;
+  billingType: string;
+  amount: number;
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function rowToSubscription(r: Record<string, any>): ClientSubscriptionRow {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    service: r.service,
+    billingType: r.billing_type,
+    amount: r.amount || 0,
+    startDate: r.start_date || undefined,
+    endDate: r.end_date || undefined,
+    status: r.status || 'Active',
+    notes: r.notes || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function listSubscriptionsForClient(clientId: string): ClientSubscriptionRow[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM client_subscriptions WHERE client_id = ? ORDER BY status, start_date DESC')
+    .all(clientId) as Record<string, any>[];
+  return rows.map(rowToSubscription);
+}
+
+export function listAllSubscriptions(): ClientSubscriptionRow[] {
+  const rows = getDb().prepare('SELECT * FROM client_subscriptions ORDER BY created_at DESC').all() as Record<string, any>[];
+  return rows.map(rowToSubscription);
+}
+
+export function getSubscription(id: string): ClientSubscriptionRow | null {
+  const row = getDb().prepare('SELECT * FROM client_subscriptions WHERE id = ?').get(id) as Record<string, any> | undefined;
+  return row ? rowToSubscription(row) : null;
+}
+
+export function upsertSubscription(sub: Partial<ClientSubscriptionRow> & { id: string; clientId: string }): void {
+  getDb()
+    .prepare(
+      `INSERT INTO client_subscriptions (
+        id, client_id, service, billing_type, amount, start_date, end_date, status, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM client_subscriptions WHERE id = ?), datetime('now')), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        service = excluded.service,
+        billing_type = excluded.billing_type,
+        amount = excluded.amount,
+        start_date = excluded.start_date,
+        end_date = excluded.end_date,
+        status = excluded.status,
+        notes = excluded.notes,
+        updated_at = datetime('now')`
+    )
+    .run(
+      sub.id,
+      sub.clientId,
+      sub.service || 'Service',
+      sub.billingType || 'Monthly',
+      sub.amount || 0,
+      sub.startDate || null,
+      sub.endDate || null,
+      sub.status || 'Active',
+      sub.notes || null,
+      sub.id
+    );
+}
+
+export function deleteSubscription(id: string): void {
+  getDb().prepare('DELETE FROM client_subscriptions WHERE id = ?').run(id);
+}
+
+/** One-time migration: create subscription rows from existing client retainer/contract data. */
+export function seedClientSubscriptions(): number {
+  const clients = listClients();
+  let created = 0;
+  for (const client of clients) {
+    const existing = listSubscriptionsForClient(client.id);
+    if (existing.length > 0) continue;
+    if (client.monthlyRetainer > 0) {
+      upsertSubscription({
+        id: `sub-${client.id}-retainer`,
+        clientId: client.id,
+        service: 'Monthly Retainer',
+        billingType: 'Retainer',
+        amount: client.monthlyRetainer,
+        startDate: client.startDate,
+        endDate: client.endDate,
+        status: 'Active',
+      });
+      created += 1;
+    } else if (client.contractValue > 0) {
+      upsertSubscription({
+        id: `sub-${client.id}-contract`,
+        clientId: client.id,
+        service: 'Project / One-Time',
+        billingType: 'One-Time',
+        amount: client.contractValue,
+        startDate: client.startDate,
+        endDate: client.endDate,
+        status: 'Active',
+      });
+      created += 1;
+    }
+  }
+  return created;
+}
+
 export function clientCount(): number {
   return (getDb().prepare('SELECT COUNT(*) AS n FROM clients').get() as any).n;
 }

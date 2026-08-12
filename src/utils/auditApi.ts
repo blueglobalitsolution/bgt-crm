@@ -10,6 +10,7 @@ import {
   Designation,
   Lead,
   Client,
+  ClientSubscription,
 } from '../types';
 export const AUTH_TOKEN_KEY = 'bgt_crm_token_v1';
 
@@ -229,6 +230,21 @@ export const auditApi = {
       method: 'POST',
       body: JSON.stringify({ leadId, client }),
     }),
+
+  // ── Client subscriptions ──
+  createSubscription: (sub: { clientId: string; service: string; billingType: string; amount: number; startDate?: string; endDate?: string; status?: string; notes?: string }) =>
+    request<{ ok: true; subscription: ClientSubscription }>('/api/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify(sub),
+    }),
+
+  updateSubscription: (id: string, sub: Partial<ClientSubscription>) =>
+    request<{ ok: true; subscription: ClientSubscription }>(`/api/subscriptions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(sub),
+    }),
+
+  deleteSubscription: (id: string) => request<{ ok: true }>(`/api/subscriptions/${id}`, { method: 'DELETE' }),
 
   // ── Database export / import (admin + password) ──
   exportDatabase: async (password: string): Promise<{ blob: Blob; filename: string }> => {

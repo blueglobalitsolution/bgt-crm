@@ -26,8 +26,8 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-sm py-4">
         <div className="flex flex-col items-center mb-6">
           <img
             src="/logo.png"

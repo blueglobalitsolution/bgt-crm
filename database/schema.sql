@@ -187,6 +187,23 @@ CREATE TABLE IF NOT EXISTS clients (
 CREATE INDEX IF NOT EXISTS idx_clients_lead ON clients(lead_id);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(agreement_status);
 
+CREATE TABLE IF NOT EXISTS client_subscriptions (
+  id           TEXT PRIMARY KEY,
+  client_id    TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  service      TEXT NOT NULL,
+  billing_type TEXT NOT NULL DEFAULT 'Monthly',
+  amount       REAL DEFAULT 0,
+  start_date   TEXT,
+  end_date     TEXT,
+  status       TEXT DEFAULT 'Active',
+  notes        TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON client_subscriptions(client_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON client_subscriptions(status);
+
 CREATE INDEX IF NOT EXISTS idx_websites_lead ON websites(lead_id);
 CREATE INDEX IF NOT EXISTS idx_audits_website ON website_audits(website_id);
 CREATE INDEX IF NOT EXISTS idx_audits_status ON website_audits(status);

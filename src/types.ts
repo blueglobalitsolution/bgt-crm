@@ -208,6 +208,33 @@ export interface Client {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  subscriptions?: ClientSubscription[];
+}
+
+/** Billing types for customer service subscriptions. */
+export const SUBSCRIPTION_TYPES = [
+  'Monthly',
+  'AMC / Yearly',
+  'Hosting',
+  'Mailing',
+  'Retainer',
+  'One-Time',
+] as const;
+
+export type SubscriptionType = (typeof SUBSCRIPTION_TYPES)[number];
+
+export interface ClientSubscription {
+  id: string;
+  clientId: string;
+  service: string;
+  billingType: SubscriptionType;
+  amount: number;
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CRMStats {

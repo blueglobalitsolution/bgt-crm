@@ -8,6 +8,10 @@ import {
   getServerLead,
   upsertServerLead,
   leadIdsAssignedTo,
+  listSubscriptionsForClient,
+  getSubscription,
+  upsertSubscription,
+  deleteSubscription,
   ClientRow,
 } from '../database/repository';
 import { requireAuth, requirePerm } from '../middleware/auth';
@@ -27,19 +31,82 @@ function clientAccessible(req: Request, client: ClientRow): boolean {
   return false;
 }
 
+function withSubs(client: ClientRow) {
+  return { ...client, subscriptions: listSubscriptionsForClient(client.id) };
+}
+
 router.get('/clients', requirePerm('customers.view'), (req: Request, res: Response) => {
   const clients = listClients();
   if (req.user!.designation !== 'Admin') {
-    res.json({ clients: clients.filter((c) => clientAccessible(req, c)) });
+    res.json({ clients: clients.filter((c) => clientAccessible(req, c)).map(withSubs) });
     return;
   }
-  res.json({ clients });
+  res.json({ clients: clients.map(withSubs) });
 });
 
 router.get('/clients/:id', requirePerm('customers.view'), (req: Request, res: Response) => {
   const client = getClient(req.params.id);
   if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
-  res.json({ client });
+  res.json({ client: withSubs(client) });
+});
+
+// ─── Client subscriptions ──────────────────────────────────────────────────
+
+router.get('/clients/:id/subscriptions', requirePerm('customers.view'), (req: Request, res: Response) => {
+  const client = getClient(req.params.id);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  res.json({ subscriptions: listSubscriptionsForClient(client.id) });
+});
+
+router.post('/subscriptions', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const { clientId, service, billingType, amount, startDate, endDate, status, notes } = req.body || {};
+  if (!clientId || !service) {
+    return res.status(400).json({ error: 'clientId and service are required' });
+  }
+  const client = getClient(clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  const id = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  upsertSubscription({
+    id,
+    clientId,
+    service,
+    billingType: billingType || 'Monthly',
+    amount: Number(amount) || 0,
+    startDate,
+    endDate,
+    status: status || 'Active',
+    notes,
+  });
+  res.status(201).json({ ok: true, subscription: getSubscription(id) });
+});
+
+router.put('/subscriptions/:id', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const existing = getSubscription(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Subscription not found' });
+  const client = getClient(existing.clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  const body = req.body || {};
+  upsertSubscription({
+    id: existing.id,
+    clientId: existing.clientId,
+    service: body.service !== undefined ? body.service : existing.service,
+    billingType: body.billingType !== undefined ? body.billingType : existing.billingType,
+    amount: body.amount !== undefined ? Number(body.amount) || 0 : existing.amount,
+    startDate: body.startDate !== undefined ? body.startDate : existing.startDate,
+    endDate: body.endDate !== undefined ? body.endDate : existing.endDate,
+    status: body.status !== undefined ? body.status : existing.status,
+    notes: body.notes !== undefined ? body.notes : existing.notes,
+  });
+  res.json({ ok: true, subscription: getSubscription(existing.id) });
+});
+
+router.delete('/subscriptions/:id', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const existing = getSubscription(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Subscription not found' });
+  const client = getClient(existing.clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  deleteSubscription(existing.id);
+  res.json({ ok: true });
 });
 
 router.post('/clients', requirePerm('customers.manage'), (req: Request, res: Response) => {

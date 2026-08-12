@@ -265,7 +265,7 @@ export const LeadsList: React.FC<LeadsListProps> = ({
             </button>
 
             {datePickerOpen && (
-              <div className="absolute left-0 top-11 z-30 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-3">
+              <div className="absolute left-0 top-11 z-30 max-w-[92vw] max-h-[70vh] overflow-y-auto overflow-x-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-3">
                 <DayPicker
                   mode="range"
                   selected={range}
@@ -304,7 +304,7 @@ export const LeadsList: React.FC<LeadsListProps> = ({
             </button>
           )}
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {(
               [
                 { label: 'Today', run: () => applyDatePreset(1) },
@@ -416,8 +416,8 @@ export const LeadsList: React.FC<LeadsListProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="p-3.5 pl-5 w-12">#</th>
-                <th className="p-3.5">Company Name</th>
+                <th className="p-3.5 pl-5 w-12 max-md:sticky max-md:left-0 max-md:z-20 max-md:bg-slate-50 max-md:dark:bg-[#162234]">#</th>
+                <th className="p-3.5 max-md:sticky max-md:left-12 max-md:z-20 max-md:bg-slate-50 max-md:dark:bg-[#162234]">Company Name</th>
                 <th className="p-3.5">Contact Person</th>
                 <th className="p-3.5">Interested Services</th>
                 <th className="p-3.5">Status</th>
@@ -443,8 +443,8 @@ export const LeadsList: React.FC<LeadsListProps> = ({
                       key={lead.id}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group"
                     >
-                      <td className="p-3.5 pl-5 font-mono text-slate-400 font-medium">{numStr}</td>
-                      <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                      <td className="p-3.5 pl-5 font-mono text-slate-400 font-medium max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-white max-md:dark:bg-slate-900 max-md:group-hover:bg-slate-50 max-md:group-hover:dark:bg-slate-800">{numStr}</td>
+                      <td className="p-3.5 font-bold text-slate-900 dark:text-slate-100 max-md:sticky max-md:left-12 max-md:z-10 max-md:bg-white max-md:dark:bg-slate-900 max-md:group-hover:bg-slate-50 max-md:group-hover:dark:bg-slate-800">
                         <button
                           onClick={() => onSelectLead(lead)}
                           className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left"
@@ -508,21 +508,21 @@ export const LeadsList: React.FC<LeadsListProps> = ({
                           <button
                             onClick={() => onOpenComm(lead, 'Call')}
                             title="Call Lead"
-                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+                            className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
                           >
                             <Phone className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => onOpenComm(lead, 'WhatsApp')}
                             title="WhatsApp Lead"
-                            className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors"
+                            className="p-2 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-950/50 transition-colors"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => onSelectLead(lead)}
                             title="View Details"
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
+                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -534,7 +534,7 @@ export const LeadsList: React.FC<LeadsListProps> = ({
                                 }
                               }}
                               title="Archive to Datacenter"
-                              className="p-1.5 rounded-lg text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/50 transition-colors"
+                              className="p-2 rounded-lg text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/50 transition-colors"
                             >
                               <Archive className="w-3.5 h-3.5" />
                             </button>

@@ -132,7 +132,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
       <div className="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-start justify-between">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
                 {lead.status}
@@ -142,10 +142,10 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               </span>
               <span className="text-xs text-slate-400 font-medium">Source: {lead.leadSource}</span>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
               {lead.companyName}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
               <span>Contact: <strong>{lead.contactPerson}</strong></span>
               <span>•</span>
               <span>Assigned: <strong>{lead.assignedTo || 'Unassigned'}</strong></span>
@@ -449,7 +449,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
 
             {lead.nextFollowupDate ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-4 text-sm font-semibold">
+                <div className="flex items-center gap-4 text-sm font-semibold flex-wrap">
                   <div>Date: <span className="text-slate-200">{lead.nextFollowupDate}</span></div>
                   <div>Time: <span className="text-slate-200">{lead.nextFollowupTime || '10:00 AM'}</span></div>
                   <div>Type: <span className="text-blue-400 font-bold">{lead.nextFollowupType || 'Call'}</span></div>

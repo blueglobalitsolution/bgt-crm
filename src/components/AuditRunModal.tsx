@@ -24,8 +24,8 @@ export const AuditRunModal: React.FC<AuditRunModalProps> = ({ website, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-[70] overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
           <div>
             <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
@@ -39,7 +39,7 @@ export const AuditRunModal: React.FC<AuditRunModalProps> = ({ website, onClose, 
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 rounded-xl p-3 text-xs">
             <div className="font-semibold text-slate-800 dark:text-slate-200 mb-1">What the audit checks</div>
             <ul className="text-slate-600 dark:text-slate-400 space-y-0.5 list-disc pl-4">

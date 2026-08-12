@@ -276,7 +276,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Sub tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold overflow-x-auto">
             <button
               onClick={() => setFilterTab('today')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
@@ -416,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <button
                       onClick={() => completeFollowup(lead.id)}
                       title="Mark follow-up complete"
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
+                      className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                     </button>
