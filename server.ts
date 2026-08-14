@@ -9,14 +9,16 @@ import { usersRouter } from './routes/users';
 import { leadsRouter } from './routes/leads';
 import { adminRouter } from './routes/admin';
 import { clientsRouter } from './routes/clients';
-import { seedDefaultData, sweepOrphanedAudits, backupDatabase, seedClientsFromWonLeads, seedClientSubscriptions } from './database/repository';
+import { followupsRouter } from './routes/followups';
+import { seedDefaultData, sweepOrphanedAudits, backupDatabase, seedClientsFromWonLeads, seedClientSubscriptions, migrateLegacyStatuses } from './database/repository';
+import { getDb } from './database/db';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -37,6 +39,12 @@ async function startServer() {
     console.log(`Audit sweeper: marked ${swept} orphaned audit(s) as failed.`);
   }
 
+  // One-time migration: legacy 'Follow-up' status -> 'Contacted'
+  const statusMigrated = migrateLegacyStatuses();
+  if (statusMigrated > 0) {
+    console.log(`Lead statuses: migrated ${statusMigrated} legacy 'Follow-up' lead(s) to 'Contacted'.`);
+  }
+
   // One-time migration: create client records for existing Won leads
   const clientsSeeded = seedClientsFromWonLeads();
   if (clientsSeeded > 0) {
@@ -55,8 +63,27 @@ async function startServer() {
     console.log(`Database backup created: ${backupFile}`);
   }
 
+  // Keep the SQLite WAL small and the connection warm so reads never stall
+  // on the first request (the mobile follow-ups endpoint is hit frequently).
+  const keepWarm = () => {
+    try {
+      const db = getDb();
+      db.prepare('SELECT 1').get();
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch {
+      /* ignore */
+    }
+  };
+  keepWarm();
+  setInterval(keepWarm, 15000).unref?.();
+
   // Users / roles / login API (mounted FIRST so the public login route is reachable)
   app.use('/api', usersRouter);
+
+  // Public follow-ups API (for the mobile app notification sync).
+  // MUST be mounted before routers with a blanket requireAuth (audit/leads/etc.)
+  // so the endpoint stays publicly reachable.
+  app.use('/api', followupsRouter);
 
   // Website Audit Engine API
   app.use('/api', auditRouter);

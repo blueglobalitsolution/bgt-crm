@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Globe, Loader2 } from 'lucide-react';
 import { Website, Lead } from '../types';
 import { auditApi } from '../utils/auditApi';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface WebsiteFormModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export const WebsiteFormModal: React.FC<WebsiteFormModalProps> = ({
   const [leadId, setLeadId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(onClose, isOpen);
 
   useEffect(() => {
     if (!isOpen) return;

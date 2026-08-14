@@ -17,7 +17,7 @@ export const INITIAL_LEADS: Lead[] = [
     estimatedBudget: '',
     expectedValue: 0,
     assignedTo: 'Unassigned',
-    status: 'Follow-up',
+    status: 'Connected',
     priority: 'Hot',
     requirementNotes: 'Needs website redesign and SEO. Currently using another agency but unhappy with lead quality. Wants quotation this week.',
     createdAt: '2026-08-01T09:00:00Z',

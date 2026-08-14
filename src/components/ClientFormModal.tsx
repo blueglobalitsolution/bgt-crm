@@ -3,6 +3,7 @@ import { X, Loader2, UserRound, Briefcase, Plus, Trash2 } from 'lucide-react';
 import { Lead, Client, DIGITAL_MARKETING_SERVICES, SUBSCRIPTION_TYPES } from '../types';
 import { auditApi } from '../utils/auditApi';
 import { useAuth } from '../context/AuthContext';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface SubDraft {
   key: string;
@@ -33,6 +34,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
   const { users } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(onClose, isOpen);
 
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');

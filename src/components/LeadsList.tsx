@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
-import { Lead, LeadStatus, LeadPriority, DIGITAL_MARKETING_SERVICES, LEAD_SOURCES, TECH_STATUS_FIELDS } from '../types';
+import { Lead, LeadStatus, LeadPriority, DIGITAL_MARKETING_SERVICES, LEAD_SOURCES, TECH_STATUS_FIELDS, LEAD_STATUS_FLOW, LEAD_TERMINAL_STATUSES, LEAD_STATUS_META } from '../types';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
 import { getLocalToday } from '../utils/auditFormat';
+import { auditApi } from '../utils/auditApi';
 import {
   Search,
   Plus,
@@ -57,6 +58,31 @@ export const LeadsList: React.FC<LeadsListProps> = ({
     return { from: '', to: '' };
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [listView, setListView] = useState<'active' | 'won'>('active');
+  const [convertedLeadIds, setConvertedLeadIds] = useState<Set<string>>(new Set());
+
+  // A Won lead is "pending conversion" until a Client record exists for it.
+  // Refresh the client set on mount and each time the Won tab is opened.
+  useEffect(() => {
+    let cancelled = false;
+    auditApi
+      .listClients()
+      .then((res) => {
+        if (!cancelled) {
+          setConvertedLeadIds(new Set(res.clients.map((c) => c.leadId).filter(Boolean) as string[]));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [listView]);
+
+  const switchView = (view: 'active' | 'won') => {
+    setListView(view);
+    setSelectedStatus('all');
+    setPage(1);
+  };
 
   // Persist the date filter so it survives a page refresh.
   useEffect(() => {
@@ -96,9 +122,18 @@ export const LeadsList: React.FC<LeadsListProps> = ({
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  // View bases: Active (everything except Won) vs Won (pending conversion only)
+  const activeLeads = useMemo(() => leads.filter((l) => l.status !== 'Won'), [leads]);
+  const pendingWon = useMemo(
+    () => leads.filter((l) => l.status === 'Won' && !convertedLeadIds.has(l.id)),
+    [leads, convertedLeadIds]
+  );
+  const viewTotal = listView === 'won' ? pendingWon.length : activeLeads.length;
+
   // Filtered Leads
   const filteredLeads = useMemo(() => {
-    return leads.filter((lead) => {
+    const base = listView === 'won' ? pendingWon : activeLeads;
+    return base.filter((lead) => {
       // Search text match
       const query = searchTerm.toLowerCase();
       const matchesSearch =
@@ -111,7 +146,8 @@ export const LeadsList: React.FC<LeadsListProps> = ({
         lead.requirementNotes?.toLowerCase().includes(query);
 
       // Filters
-      const matchesStatus = selectedStatus === 'all' || lead.status === selectedStatus;
+      const matchesStatus =
+        listView === 'won' || selectedStatus === 'all' || lead.status === selectedStatus;
       const matchesService =
         selectedService === 'all' || lead.interestedServices?.includes(selectedService);
       const matchesSource = selectedSource === 'all' || lead.leadSource === selectedSource;
@@ -141,7 +177,9 @@ export const LeadsList: React.FC<LeadsListProps> = ({
       );
     });
   }, [
-    leads,
+    listView,
+    activeLeads,
+    pendingWon,
     searchTerm,
     selectedStatus,
     selectedService,
@@ -155,38 +193,14 @@ export const LeadsList: React.FC<LeadsListProps> = ({
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedStatus, selectedService, selectedSource, selectedPriority, selectedSalesperson, dateField, dateFilter]);
+  }, [searchTerm, selectedStatus, selectedService, selectedSource, selectedPriority, selectedSalesperson, dateField, dateFilter, listView]);
 
   const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const pagedLeads = filteredLeads.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   // Status Badge Color helper
-  const getStatusBadge = (status: LeadStatus) => {
-    switch (status) {
-      case 'New':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
-      case 'Contacted':
-        return 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300';
-      case 'Interested':
-        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300';
-      case 'Follow-up':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
-      case 'Meeting':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300';
-      case 'Proposal Sent':
-        return 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300';
-      case 'Negotiation':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300';
-      case 'Won':
-        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
-      case 'Lost':
-      case 'Not Interested':
-        return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-      default:
-        return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
-    }
-  };
+  const getStatusBadge = (status: LeadStatus) => LEAD_STATUS_META[status]?.color || 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
 
   const getPriorityBadge = (priority: LeadPriority) => {
     switch (priority) {
@@ -214,7 +228,9 @@ export const LeadsList: React.FC<LeadsListProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Leads Database</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Showing {filteredLeads.length} of {leads.length} digital marketing prospects
+            {listView === 'won'
+              ? `Showing ${filteredLeads.length} of ${viewTotal} won lead(s) pending conversion`
+              : `Showing ${filteredLeads.length} of ${viewTotal} active prospects`}
             {!isAdmin && ' — only leads assigned to you'}
             {(dateFilter.from || dateFilter.to) && (
               <span className="text-blue-600 dark:text-blue-400 font-medium">
@@ -243,6 +259,26 @@ export const LeadsList: React.FC<LeadsListProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Active / Won tabs */}
+      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs font-semibold w-fit max-w-full overflow-x-auto">
+        <button
+          onClick={() => switchView('active')}
+          className={`px-3.5 py-1.5 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            listView === 'active' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Active Leads ({activeLeads.length})
+        </button>
+        <button
+          onClick={() => switchView('won')}
+          className={`px-3.5 py-1.5 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            listView === 'won' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Won — Pending Conversion ({pendingWon.length})
+        </button>
       </div>
 
       {/* Filter Toolbar */}
@@ -346,24 +382,26 @@ export const LeadsList: React.FC<LeadsListProps> = ({
             />
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100"
-          >
-            <option value="all">Status: All</option>
-            <option value="New">🔵 New</option>
-            <option value="Contacted">Contacted</option>
-            <option value="Interested">Interested</option>
-            <option value="Follow-up">🟡 Follow-up</option>
-            <option value="Meeting">Meeting</option>
-            <option value="Proposal Sent">Proposal Sent</option>
-            <option value="Negotiation">Negotiation</option>
-            <option value="Won">🟢 Won</option>
-            <option value="Lost">Lost</option>
-            <option value="Not Interested">Not Interested</option>
-          </select>
+          {/* Status Filter (active view only — Won has its own tab) */}
+          {listView === 'active' && (
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100"
+            >
+              <option value="all">Status: All</option>
+              {LEAD_STATUS_FLOW.filter((s) => s !== 'Won').map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+              {LEAD_TERMINAL_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Service Filter */}
           <select
@@ -432,7 +470,9 @@ export const LeadsList: React.FC<LeadsListProps> = ({
               {filteredLeads.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-8 text-center text-slate-500">
-                    No leads found matching criteria.
+                    {listView === 'won'
+                      ? 'No won leads pending conversion. Converted customers live under Customers.'
+                      : 'No leads found matching criteria.'}
                   </td>
                 </tr>
               ) : (
@@ -454,6 +494,13 @@ export const LeadsList: React.FC<LeadsListProps> = ({
                         <div className="text-[10px] text-slate-400 font-normal">
                           {lead.city ? `${lead.city}, ${lead.state || ''}` : lead.industry || ''}
                         </div>
+                        {listView === 'won' && (
+                          <div className="mt-0.5">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                              Pending Conversion
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="p-3.5">
                         <div className="font-semibold text-slate-800 dark:text-slate-200">

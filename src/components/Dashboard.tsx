@@ -55,16 +55,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // Filter followups
+  const activeForFollowup = (l: Lead) =>
+    l.status !== 'Won' && l.status !== 'Lost' && l.status !== 'Not Interested' && l.status !== 'No Response';
+
   const overdueLeads = leads.filter(
-    (l) => l.nextFollowupDate && l.nextFollowupDate < todayStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate && l.nextFollowupDate < todayStr && activeForFollowup(l)
   );
 
   const todayLeads = leads.filter(
-    (l) => l.nextFollowupDate === todayStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate === todayStr && activeForFollowup(l)
   );
 
   const upcomingLeads = leads.filter(
-    (l) => l.nextFollowupDate && l.nextFollowupDate > todayStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate && l.nextFollowupDate > todayStr && activeForFollowup(l)
   );
 
   let displayedFollowupLeads: Lead[] = [];

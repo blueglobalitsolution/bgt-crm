@@ -31,20 +31,23 @@ export const FollowupsView: React.FC<FollowupsViewProps> = ({
   const tomorrowStr = tomorrowObj.toISOString().split('T')[0];
 
   // Group leads
+  const activeForFollowup = (l: Lead) =>
+    l.status !== 'Won' && l.status !== 'Lost' && l.status !== 'Not Interested' && l.status !== 'No Response';
+
   const overdueLeads = leads.filter(
-    (l) => l.nextFollowupDate && l.nextFollowupDate < todayStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate && l.nextFollowupDate < todayStr && activeForFollowup(l)
   );
 
   const todayLeads = leads.filter(
-    (l) => l.nextFollowupDate === todayStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate === todayStr && activeForFollowup(l)
   );
 
   const tomorrowLeads = leads.filter(
-    (l) => l.nextFollowupDate === tomorrowStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate === tomorrowStr && activeForFollowup(l)
   );
 
   const upcomingLeads = leads.filter(
-    (l) => l.nextFollowupDate && l.nextFollowupDate > tomorrowStr && l.status !== 'Won' && l.status !== 'Lost'
+    (l) => l.nextFollowupDate && l.nextFollowupDate > tomorrowStr && activeForFollowup(l)
   );
 
   let currentList: Lead[] = [];

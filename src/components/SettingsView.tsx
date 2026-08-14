@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
 import { auditApi } from '../utils/auditApi';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 import {
   Settings as SettingsIcon,
   Database,
@@ -28,6 +29,8 @@ export const SettingsView: React.FC = () => {
   const [dbPasswordError, setDbPasswordError] = useState<string | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [dbBusy, setDbBusy] = useState(false);
+
+  useEscapeClose(() => setDbPasswordModal(null), dbPasswordModal !== null);
 
   const run = async (key: string, action: () => Promise<void>) => {
     setBusy(key);

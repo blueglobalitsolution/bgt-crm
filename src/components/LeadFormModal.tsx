@@ -6,10 +6,13 @@ import {
   FollowupType,
   DIGITAL_MARKETING_SERVICES,
   LEAD_SOURCES,
+  LEAD_STATUS_FLOW,
+  LEAD_TERMINAL_STATUSES,
 } from '../types';
 import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
 import { getLocalToday, getLocalNowTime } from '../utils/auditFormat';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 import { X, Save, Building2, User, Phone, Mail, Globe, Sparkles } from 'lucide-react';
 
 interface LeadFormModalProps {
@@ -27,6 +30,8 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
 
   const { addLead, updateLead } = useCRM();
   const { users, isAdmin } = useAuth();
+
+  useEscapeClose(onClose, isOpen);
 
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -406,16 +411,17 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
                   onChange={(e) => setStatus(e.target.value as LeadStatus)}
                   className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100"
                 >
-                  <option value="New">🔵 New</option>
-                  <option value="Contacted">Contacted</option>
-                  <option value="Interested">Interested</option>
-                  <option value="Follow-up">🟡 Follow-up</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Proposal Sent">Proposal Sent</option>
-                  <option value="Negotiation">Negotiation</option>
-                  <option value="Won">🟢 Won</option>
-                  <option value="Lost">Lost</option>
-                  <option value="Not Interested">Not Interested</option>
+                  <option value="New">New</option>
+                  {LEAD_STATUS_FLOW.slice(1).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                  {LEAD_TERMINAL_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
 

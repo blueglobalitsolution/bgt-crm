@@ -5,7 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { useWebsiteForUrl } from '../hooks/useWebsiteForUrl';
 import { WebsiteHealthBadge } from './WebsiteHealthBadge';
 import { getLocalToday, getLocalNowTime } from '../utils/auditFormat';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 import { ClientFormModal } from './ClientFormModal';
+import { AddActivityModal } from './AddActivityModal';
 import {
   X,
   Phone,
@@ -26,6 +28,18 @@ import {
   Play,
   Loader2,
   Archive,
+  MessageCircle,
+  Users,
+  Laptop,
+  Video,
+  FileText,
+  Wallet,
+  Scale,
+  Trophy,
+  XCircle,
+  StickyNote,
+  Bell,
+  ClipboardList,
 } from 'lucide-react';
 
 interface LeadDetailDrawerProps {
@@ -56,6 +70,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   const [newNoteText, setNewNoteText] = useState('');
   const [showReschedule, setShowReschedule] = useState(false);
   const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [activityModalOpen, setActivityModalOpen] = useState(false);
 
   const { website: linkedWebsite } = useWebsiteForUrl(liveLead.website);
 
@@ -72,6 +87,9 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
       setReschedTime(getLocalNowTime());
     }
   }, [showReschedule]);
+
+  // Close on Escape, but let nested modals (Add Activity / Convert-Edit Client) close first.
+  useEscapeClose(onClose, !activityModalOpen && !clientModalOpen);
 
   const handleGenerateAiSummary = async () => {
     setLoadingAi(true);
@@ -118,14 +136,44 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   // Activity Icon Helper
   const getActivityIcon = (type: ActivityLog['type']) => {
     switch (type) {
+      case 'Phone Call':
       case 'Call':
         return <Phone className="w-3.5 h-3.5 text-emerald-600" />;
       case 'WhatsApp':
         return <MessageSquare className="w-3.5 h-3.5 text-green-600" />;
+      case 'SMS':
+        return <MessageCircle className="w-3.5 h-3.5 text-sky-600" />;
+      case 'Email':
+        return <Mail className="w-3.5 h-3.5 text-blue-600" />;
+      case 'Personal Meeting':
+        return <Users className="w-3.5 h-3.5 text-indigo-600" />;
+      case 'Online Meeting':
+        return <Laptop className="w-3.5 h-3.5 text-indigo-600" />;
+      case 'Video Call':
+        return <Video className="w-3.5 h-3.5 text-fuchsia-600" />;
+      case 'Proposal Sent':
       case 'Proposal':
-        return <Briefcase className="w-3.5 h-3.5 text-violet-600" />;
+        return <FileText className="w-3.5 h-3.5 text-violet-600" />;
+      case 'Price Discussion':
+        return <Wallet className="w-3.5 h-3.5 text-amber-600" />;
+      case 'Negotiation':
+        return <Scale className="w-3.5 h-3.5 text-orange-600" />;
+      case 'Deal Won':
+        return <Trophy className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'Deal Lost':
+        return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
+      case 'Note':
+        return <StickyNote className="w-3.5 h-3.5 text-slate-500" />;
+      case 'Follow-up':
+        return <Bell className="w-3.5 h-3.5 text-amber-500" />;
+      case 'Requirement':
+        return <ClipboardList className="w-3.5 h-3.5 text-cyan-600" />;
+      case 'Meeting':
+        return <Users className="w-3.5 h-3.5 text-indigo-600" />;
       case 'Status Change':
         return <TrendingUp className="w-3.5 h-3.5 text-blue-600" />;
+      case 'System':
+        return <Sparkles className="w-3.5 h-3.5 text-slate-500" />;
       default:
         return <Calendar className="w-3.5 h-3.5 text-slate-500" />;
     }
@@ -154,6 +202,15 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               <span>•</span>
               <span>Assigned: <strong>{liveLead.assignedTo || 'Unassigned'}</strong></span>
             </p>
+            {liveLead.nextFollowupDate && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg px-2 py-1 mt-2 inline-flex items-center gap-1.5 font-medium">
+                <Calendar className="w-3.5 h-3.5" />
+                Next Follow-up: {liveLead.nextFollowupDate} @ {liveLead.nextFollowupTime || '11:00 AM'}
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                  {liveLead.nextFollowupType || 'Call'}
+                </span>
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-1">
@@ -175,6 +232,14 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
 
         {/* Action Bar */}
         <div className="px-6 py-3 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 flex items-center gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActivityModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Activity</span>
+          </button>
+
           {can('comm.call') && (
             <button
               onClick={() => onOpenComm(lead, 'Call')}
@@ -578,10 +643,10 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             </h4>
 
             <div className="relative border-l-2 border-slate-200 dark:border-slate-800 ml-3 space-y-4">
-              {liveLead.activities?.length === 0 ? (
+              {(liveLead.activities || []).length === 0 ? (
                 <div className="pl-4 text-xs text-slate-400 italic">No timeline activities recorded.</div>
               ) : (
-                liveLead.activities?.map((act) => {
+                (liveLead.activities || []).map((act) => {
                   const dateFormatted = new Date(act.timestamp).toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'short',
@@ -596,9 +661,16 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                       </div>
 
                       <div className="bg-slate-50/80 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
-                        <div className="flex items-center justify-between font-semibold text-slate-900 dark:text-slate-100 mb-0.5">
-                          <span>{act.summary}</span>
-                          <span className="text-[10px] text-slate-400 font-normal">{dateFormatted}</span>
+                        <div className="flex items-center justify-between gap-2 font-semibold text-slate-900 dark:text-slate-100 mb-0.5">
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            {act.summary}
+                            {act.outcome && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                {act.outcome}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">{dateFormatted}</span>
                         </div>
                         {act.details && (
                           <p className="text-slate-600 dark:text-slate-300 text-xs mt-1 leading-relaxed">
@@ -625,6 +697,13 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           setClientModalOpen(false);
           refreshLeads();
         }}
+      />
+
+      {/* Add Activity modal */}
+      <AddActivityModal
+        lead={lead}
+        isOpen={activityModalOpen}
+        onClose={() => setActivityModalOpen(false)}
       />
     </div>
   );

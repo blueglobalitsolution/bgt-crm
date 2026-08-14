@@ -6,9 +6,17 @@ import {
   LeadPriority,
   CRMStats,
   ActivityLog,
+  FollowupType,
 } from '../types';
 import { INITIAL_LEADS } from '../data/initialLeads';
 import { auditApi } from '../utils/auditApi';
+
+export interface AddActivityOptions {
+  status?: LeadStatus | null;
+  /** ISO timestamp for the activity (defaults to now). Enables backdated entries. */
+  timestamp?: string;
+  scheduleFollowup?: { date: string; time: string; type: FollowupType; note: string };
+}
 
 interface CRMContextType {
   leads: Lead[];
@@ -18,7 +26,11 @@ interface CRMContextType {
   updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   restoreArchivedLead: (lead: Lead) => Promise<void>;
-  addActivity: (leadId: string, activity: Omit<ActivityLog, 'id' | 'leadId' | 'timestamp'>) => void;
+  addActivity: (
+    leadId: string,
+    activity: Omit<ActivityLog, 'id' | 'leadId' | 'timestamp'>,
+    options?: AddActivityOptions
+  ) => void;
   completeFollowup: (leadId: string, newFollowupNote?: string) => void;
   scheduleFollowup: (
     leadId: string,
@@ -251,22 +263,71 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addActivity = (
     leadId: string,
-    activityData: Omit<ActivityLog, 'id' | 'leadId' | 'timestamp'>
+    activityData: Omit<ActivityLog, 'id' | 'leadId' | 'timestamp'>,
+    options?: AddActivityOptions
   ) => {
     const current = leads.find((l) => l.id === leadId);
     if (!current) return;
     const now = new Date().toISOString();
+    const ts = options?.timestamp || now;
+    const actId = () => `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newAct: ActivityLog = {
       ...activityData,
-      id: `act-${Date.now()}`,
+      id: actId(),
       leadId,
-      timestamp: now,
+      timestamp: ts,
     };
-    const updatedLead: Lead = {
+
+    let updatedLead: Lead = {
       ...current,
       updatedAt: now,
       activities: [newAct, ...(current.activities || [])],
     };
+
+    // Apply an implied status change (logs a Status Change activity).
+    if (options?.status && options.status !== current.status) {
+      updatedLead = {
+        ...updatedLead,
+        status: options.status,
+        activities: [
+          {
+            id: actId(),
+            leadId,
+            type: 'Status Change',
+            summary: `Status updated to ${options.status}`,
+            details: `Previous status: ${current.status}`,
+            timestamp: now,
+            author: activityData.author,
+          },
+          ...updatedLead.activities,
+        ],
+      };
+    }
+
+    // Auto-create the next follow-up (logs a Follow-up activity).
+    if (options?.scheduleFollowup) {
+      const { date, time, type, note } = options.scheduleFollowup;
+      updatedLead = {
+        ...updatedLead,
+        nextFollowupDate: date,
+        nextFollowupTime: time,
+        nextFollowupType: type,
+        nextFollowupNote: note,
+        activities: [
+          {
+            id: actId(),
+            leadId,
+            type: 'Follow-up',
+            summary: `Scheduled Follow-up for ${date} at ${time} (${type})`,
+            details: note,
+            timestamp: now,
+            author: activityData.author,
+          },
+          ...updatedLead.activities,
+        ],
+      };
+    }
+
     setLeads((prev) => prev.map((lead) => (lead.id === leadId ? updatedLead : lead)));
     persistLead(updatedLead);
   };
@@ -310,7 +371,7 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activity: ActivityLog = {
       id: `act-${Date.now()}`,
       leadId,
-      type: 'Note',
+      type: 'Follow-up',
       summary: `Scheduled Follow-up for ${date} at ${time} (${type})`,
       details: note,
       timestamp: now,
@@ -388,7 +449,8 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Compute CRM Stats
   const todayStr = new Date().toISOString().split('T')[0];
-  const totalLeads = leads.length;
+  const activeLeads = leads.filter((l) => l.status !== 'Won');
+  const totalLeads = activeLeads.length;
   const newLeads = leads.filter((l) => l.status === 'New').length;
   const followupsToday = leads.filter(
     (l) => l.nextFollowupDate === todayStr || (l.nextFollowupDate && l.nextFollowupDate < todayStr)
@@ -401,7 +463,13 @@ export const CRMProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const lostCount = leads.filter((l) => l.status === 'Lost').length;
 
   const pipelineValue = leads
-    .filter((l) => l.status !== 'Won' && l.status !== 'Lost' && l.status !== 'Not Interested')
+    .filter(
+      (l) =>
+        l.status !== 'Won' &&
+        l.status !== 'Lost' &&
+        l.status !== 'Not Interested' &&
+        l.status !== 'No Response'
+    )
     .reduce((acc, curr) => acc + (curr.expectedValue || 0), 0);
 
   const stats: CRMStats = {

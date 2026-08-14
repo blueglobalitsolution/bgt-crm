@@ -1,18 +1,158 @@
 export type LeadStatus =
   | 'New'
   | 'Contacted'
+  | 'Connected'
   | 'Interested'
-  | 'Follow-up'
+  | 'Qualified'
   | 'Meeting'
   | 'Proposal Sent'
   | 'Negotiation'
   | 'Won'
   | 'Lost'
-  | 'Not Interested';
+  | 'Not Interested'
+  | 'No Response';
+
+/** Ordered sales funnel (active stages). Terminal statuses are handled separately. */
+export const LEAD_STATUS_FLOW: LeadStatus[] = [
+  'New',
+  'Contacted',
+  'Connected',
+  'Interested',
+  'Qualified',
+  'Meeting',
+  'Proposal Sent',
+  'Negotiation',
+  'Won',
+];
+
+/** Closed / terminal statuses, reachable from almost any stage. */
+export const LEAD_TERMINAL_STATUSES: LeadStatus[] = ['Lost', 'Not Interested', 'No Response'];
+
+export const LEAD_STATUS_META: Record<LeadStatus, { label: string; color: string }> = {
+  New: { label: 'New', color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
+  Contacted: { label: 'Contacted', color: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' },
+  Connected: { label: 'Connected', color: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300' },
+  Interested: { label: 'Interested', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' },
+  Qualified: { label: 'Qualified', color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300' },
+  Meeting: { label: 'Meeting', color: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' },
+  'Proposal Sent': { label: 'Proposal Sent', color: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300' },
+  Negotiation: { label: 'Negotiation', color: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300' },
+  Won: { label: 'Won', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' },
+  Lost: { label: 'Lost', color: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+  'Not Interested': { label: 'Not Interested', color: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+  'No Response': { label: 'No Response', color: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' },
+};
 
 export type LeadPriority = 'Hot' | 'Warm' | 'Cold';
 
 export type FollowupType = 'Call' | 'WhatsApp' | 'Email' | 'Meeting';
+
+export type ActivityType =
+  | 'Phone Call'
+  | 'WhatsApp'
+  | 'SMS'
+  | 'Email'
+  | 'Personal Meeting'
+  | 'Online Meeting'
+  | 'Video Call'
+  | 'Proposal Sent'
+  | 'Price Discussion'
+  | 'Negotiation'
+  | 'Deal Won'
+  | 'Deal Lost'
+  | 'Note'
+  | 'Follow-up'
+  | 'Requirement'
+  // Legacy types kept so historical records still render
+  | 'Call'
+  | 'Meeting'
+  | 'Proposal'
+  | 'Status Change'
+  | 'System';
+
+export type ActivityOutcome =
+  | 'Connected'
+  | 'Interested'
+  | 'Not Interested'
+  | 'No Response'
+  | 'Call Back'
+  | 'Meeting Scheduled'
+  | 'Proposal Requested'
+  | 'Other';
+
+export const ACTIVITY_GROUPS: { group: string; items: ActivityType[] }[] = [
+  { group: 'Communication', items: ['Phone Call', 'WhatsApp', 'SMS', 'Email'] },
+  { group: 'Meetings', items: ['Personal Meeting', 'Online Meeting', 'Video Call'] },
+  { group: 'Sales', items: ['Proposal Sent', 'Price Discussion', 'Negotiation', 'Deal Won', 'Deal Lost'] },
+  { group: 'Internal', items: ['Note', 'Follow-up', 'Requirement'] },
+];
+
+export const ACTIVITY_OUTCOMES: ActivityOutcome[] = [
+  'Connected',
+  'Interested',
+  'Not Interested',
+  'No Response',
+  'Call Back',
+  'Meeting Scheduled',
+  'Proposal Requested',
+  'Other',
+];
+
+/** Map an activity outcome/type to an implied status, or null when none applies. */
+export function statusFromOutcome(
+  outcome: ActivityOutcome | undefined,
+  activityType: ActivityType | undefined,
+  currentStatus?: LeadStatus
+): LeadStatus | null {
+  if (activityType === 'Deal Won') return 'Won';
+  if (activityType === 'Deal Lost') return 'Lost';
+  if (!outcome) return null;
+  switch (outcome) {
+    case 'Connected':
+      return 'Connected';
+    case 'Call Back':
+      return currentStatus === 'New' ? 'Contacted' : null;
+    case 'Interested':
+      return 'Interested';
+    case 'Meeting Scheduled':
+      return 'Meeting';
+    case 'Proposal Requested':
+      return 'Qualified';
+    case 'Not Interested':
+      return 'Not Interested';
+    case 'No Response':
+      return 'No Response';
+    default:
+      return null;
+  }
+}
+
+/** Apply a status only if it moves forward in the funnel or is a terminal state. */
+export function shouldApplyStatus(target: LeadStatus | null, current: LeadStatus): boolean {
+  if (!target || target === current) return false;
+  const flowIdx = LEAD_STATUS_FLOW.indexOf(current);
+  const targetIdx = LEAD_STATUS_FLOW.indexOf(target);
+  if (flowIdx === -1) return true; // from a terminal status, allow any explicit change
+  if (targetIdx === -1) return true; // to a terminal status, always allowed
+  return targetIdx > flowIdx;
+}
+
+/** Convert an activity type to the narrower follow-up channel type. */
+export function followupTypeFromActivity(type: ActivityType): FollowupType {
+  switch (type) {
+    case 'Phone Call':
+    case 'Call':
+      return 'Call';
+    case 'Email':
+      return 'Email';
+    case 'Personal Meeting':
+    case 'Online Meeting':
+    case 'Video Call':
+      return 'Meeting';
+    default:
+      return 'WhatsApp';
+  }
+}
 
 export const DIGITAL_MARKETING_SERVICES = [
   'Website Development',
@@ -59,11 +199,12 @@ export type LeadSource = typeof LEAD_SOURCES[number];
 export interface ActivityLog {
   id: string;
   leadId: string;
-  type: 'Call' | 'WhatsApp' | 'Email' | 'Proposal' | 'Note' | 'Status Change' | 'System';
+  type: ActivityType;
   summary: string;
   details?: string;
   timestamp: string;
   author: string;
+  outcome?: ActivityOutcome;
 }
 
 export interface Followup {

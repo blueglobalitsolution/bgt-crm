@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Play } from 'lucide-react';
 import { Website } from '../types';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface AuditRunModalProps {
   website: Website | null;
@@ -12,6 +13,8 @@ export const AuditRunModal: React.FC<AuditRunModalProps> = ({ website, onClose, 
   const [maxPages, setMaxPages] = useState(500);
   const [renderJs, setRenderJs] = useState(false);
   const [timeoutSeconds, setTimeoutSeconds] = useState(60);
+
+  useEscapeClose(onClose, !!website);
 
   if (!website) return null;
 

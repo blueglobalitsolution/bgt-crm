@@ -3,6 +3,7 @@ import { Lead } from '../types';
 import { Phone, MessageSquare, X, Send, Copy, Sparkles, Check, ExternalLink } from 'lucide-react';
 import { useCRM } from '../context/CRMContext';
 import { cleanPhone, openWhatsAppPopout } from '../utils/whatsapp';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface CommunicationModalProps {
   lead: Lead | null;
@@ -25,6 +26,8 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
     const servicesStr = lead.interestedServices?.join(', ') || 'Digital Marketing Services';
     return `Hi ${lead.contactPerson || 'there'}, greeting from BGT Digital Marketing! I am reaching out regarding your interest in ${servicesStr} for ${lead.companyName}. When is a good time to connect for a quick 5-minute call?`;
   });
+
+  useEscapeClose(onClose, !!(lead && mode));
 
   const formattedPhone = cleanPhone(lead.whatsapp || lead.mobile);
 

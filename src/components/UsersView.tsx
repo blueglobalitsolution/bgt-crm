@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { User } from '../types';
 import { auditApi } from '../utils/auditApi';
 import { PERMISSION_GROUPS } from '../permissions';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 import {
   Users as UsersIcon,
   ShieldCheck,
@@ -94,6 +95,8 @@ const UsersTab: React.FC<{
   const [designation, setDesignation] = useState(roles[0]?.designation || 'Admin');
   const [active, setActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(() => setModalOpen(false), modalOpen);
 
   const openAdd = () => {
     setEditing(null);

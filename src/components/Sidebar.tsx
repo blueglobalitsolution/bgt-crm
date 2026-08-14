@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 import { auditApi } from '../utils/auditApi';
 
 interface SidebarProps {
@@ -44,6 +45,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleClose = () => {
     if (setMobileOpen) setMobileOpen(false);
   };
+
+  useEscapeClose(handleClose, !!setMobileOpen && mobileOpen);
 
   const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, badge: null, perm: null },

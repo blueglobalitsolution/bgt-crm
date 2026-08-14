@@ -983,6 +983,46 @@ export function leadIdsAssignedTo(userName: string): string[] {
   return rows.map((r) => r.id);
 }
 
+/**
+ * One-time migration: 'Follow-up' was removed as a lead status in favor of the
+ * New → Contacted → Connected → … funnel. Existing 'Follow-up' leads move to
+ * 'Contacted' (both the mirrored status column and the lead data JSON).
+ */
+export function migrateLegacyStatuses(): number {
+  const db = getDb();
+  const rows = db.prepare("SELECT id, data FROM leads WHERE status = 'Follow-up'").all() as Record<string, any>[];
+  let changed = 0;
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.data);
+      if (data.status === 'Follow-up') {
+        data.status = 'Contacted';
+        data.updatedAt = new Date().toISOString();
+        const activities = Array.isArray(data.activities) ? data.activities : [];
+        data.activities = [
+          {
+            id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            leadId: data.id,
+            type: 'Status Change',
+            summary: 'Status updated to Contacted',
+            details: 'Previous status: Follow-up (legacy status removed)',
+            timestamp: new Date().toISOString(),
+            author: data.assignedTo || 'System',
+          },
+          ...activities,
+        ];
+        db.prepare(
+          "UPDATE leads SET data = ?, status = ?, updated_at = datetime('now') WHERE id = ?"
+        ).run(JSON.stringify(data), 'Contacted', row.id);
+        changed += 1;
+      }
+    } catch {
+      /* skip malformed rows */
+    }
+  }
+  return changed;
+}
+
 // ─── Backups ───────────────────────────────────────────────────────────────
 
 export function backupDatabase(): string | null {

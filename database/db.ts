@@ -18,7 +18,7 @@ export function getDb(): DatabaseSync {
     db.exec('PRAGMA foreign_keys = ON');
     db.exec('PRAGMA busy_timeout = 3000');
     db.exec('PRAGMA journal_size_limit = 1048576');
-    db.exec('PRAGMA wal_autocheckpoint = 200');
+    db.exec('PRAGMA wal_autocheckpoint = 50');
     if (fs.existsSync(SCHEMA_PATH)) {
       const schema = fs.readFileSync(SCHEMA_PATH, 'utf-8');
       db.exec(schema);

@@ -22,6 +22,7 @@ import {
   formatResponseTime,
 } from '../utils/auditFormat';
 import { printAuditReport } from '../utils/auditReport';
+import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface WebsiteAuditDetailProps {
   website: Website;
@@ -70,6 +71,8 @@ export const WebsiteAuditDetail: React.FC<WebsiteAuditDetailProps> = ({
   const [brokenFilter, setBrokenFilter] = useState<'open' | 'fixed' | 'ignored' | 'all'>('open');
   const [issueFilter, setIssueFilter] = useState<AuditSeverity | 'all'>('all');
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEscapeClose(onClose, true);
 
   useEffect(() => {
     setCurrentAuditId(auditId);
