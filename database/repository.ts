@@ -661,12 +661,13 @@ export interface UserRow {
   passwordHash: string;
   designation: string;
   active: number;
+  email?: string | null;
   createdAt: string;
 }
 
 export function listUsers(): Omit<UserRow, 'passwordHash'>[] {
   const rows = getDb()
-    .prepare('SELECT id, name, username, designation, active, created_at FROM users ORDER BY name')
+    .prepare('SELECT id, name, username, designation, active, email, created_at FROM users ORDER BY name')
     .all() as Record<string, any>[];
   return rows.map((r) => ({
     id: r.id,
@@ -674,6 +675,7 @@ export function listUsers(): Omit<UserRow, 'passwordHash'>[] {
     username: r.username,
     designation: r.designation,
     active: r.active,
+    email: r.email || undefined,
     createdAt: r.created_at,
   }));
 }
@@ -688,12 +690,13 @@ export function getUserByUsername(username: string): UserRow | null {
     passwordHash: row.password_hash,
     designation: row.designation,
     active: row.active,
+    email: row.email || undefined,
     createdAt: row.created_at,
   };
 }
 
 export function getUserById(id: string): Omit<UserRow, 'passwordHash'> | null {
-  const row = getDb().prepare('SELECT id, name, username, designation, active, created_at FROM users WHERE id = ?').get(id) as
+  const row = getDb().prepare('SELECT id, name, username, designation, active, email, created_at FROM users WHERE id = ?').get(id) as
     | Record<string, any>
     | undefined;
   if (!row) return null;
@@ -703,6 +706,22 @@ export function getUserById(id: string): Omit<UserRow, 'passwordHash'> | null {
     username: row.username,
     designation: row.designation,
     active: row.active,
+    email: row.email || undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function getUserByEmail(email: string): UserRow | null {
+  const row = getDb().prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email.trim()) as Record<string, any> | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    username: row.username,
+    passwordHash: row.password_hash,
+    designation: row.designation,
+    active: row.active,
+    email: row.email || undefined,
     createdAt: row.created_at,
   };
 }
@@ -712,19 +731,19 @@ export function getPasswordHashByUserId(id: string): string | null {
   return row ? row.password_hash : null;
 }
 
-export function createUser(input: { name: string; username: string; passwordHash: string; designation: string; active?: number }): void {
+export function createUser(input: { name: string; username: string; passwordHash: string; designation: string; active?: number; email?: string }): void {
   const id = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   getDb()
     .prepare(
-      `INSERT INTO users (id, name, username, password_hash, designation, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO users (id, name, username, password_hash, designation, active, email, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     )
-    .run(id, input.name, input.username, input.passwordHash, input.designation, input.active ?? 1);
+    .run(id, input.name, input.username, input.passwordHash, input.designation, input.active ?? 1, input.email?.trim() || null);
 }
 
 export function updateUser(
   id: string,
-  updates: { name?: string; username?: string; passwordHash?: string; designation?: string; active?: number }
+  updates: { name?: string; username?: string; passwordHash?: string; designation?: string; active?: number; email?: string | null }
 ): void {
   const parts: string[] = [];
   const params: any[] = [];
@@ -747,6 +766,10 @@ export function updateUser(
   if (updates.active !== undefined) {
     parts.push('active = ?');
     params.push(updates.active);
+  }
+  if (updates.email !== undefined) {
+    parts.push('email = ?');
+    params.push(updates.email === null ? null : (updates.email as string).trim() || null);
   }
   if (parts.length === 0) return;
   getDb().prepare(`UPDATE users SET ${parts.join(', ')} WHERE id = ?`).run(...params, id);
@@ -818,7 +841,25 @@ export function seedDefaultData(): void {
   if (userCount === 0) {
     // Default admin: admin / admin123
     const hash = hashPassword('admin123');
-    createUser({ name: 'Administrator', username: 'admin', passwordHash: hash, designation: 'Admin', active: 1 });
+    createUser({
+      name: 'Administrator',
+      username: 'admin',
+      passwordHash: hash,
+      designation: 'Admin',
+      active: 1,
+      email: process.env.ADMIN_EMAIL || 'blueglobtech@gmail.com',
+    });
+  } else {
+    // Backfill email for the default admin if it was created before the column existed.
+    const adminRow = db
+      .prepare('SELECT id, email FROM users WHERE username = ?')
+      .get('admin') as Record<string, any> | undefined;
+    if (adminRow && !adminRow.email) {
+      db.prepare('UPDATE users SET email = ? WHERE id = ?').run(
+        process.env.ADMIN_EMAIL || 'blueglobtech@gmail.com',
+        adminRow.id
+      );
+    }
   }
 }
 

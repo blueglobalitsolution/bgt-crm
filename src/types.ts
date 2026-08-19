@@ -324,6 +324,7 @@ export interface User {
   username: string;
   designation: string;
   active: number;
+  email?: string;
   createdAt: string;
 }
 

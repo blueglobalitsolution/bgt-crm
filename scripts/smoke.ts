@@ -25,11 +25,11 @@ async function main() {
     if (r.status !== 200) throw new Error(`health returned ${r.status}`);
   });
 
-  await check('login (admin/admin123)', async () => {
+  await check('login (admin email/admin123)', async () => {
     const r = await fetch(`${BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123' }),
+      body: JSON.stringify({ email: 'blueglobtech@gmail.com', password: 'admin123' }),
     });
     const body: any = await r.json();
     if (r.status !== 200 || !body.token) throw new Error('login failed');
@@ -42,7 +42,7 @@ async function main() {
     const r = await fetch(`${BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'wrong' }),
+      body: JSON.stringify({ email: 'blueglobtech@gmail.com', password: 'wrong' }),
     });
     if (r.status !== 401) throw new Error(`expected 401, got ${r.status}`);
   });

@@ -91,6 +91,7 @@ const UsersTab: React.FC<{
   const [editing, setEditing] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [designation, setDesignation] = useState(roles[0]?.designation || 'Admin');
   const [active, setActive] = useState(true);
@@ -102,6 +103,7 @@ const UsersTab: React.FC<{
     setEditing(null);
     setName('');
     setUsername('');
+    setEmail('');
     setPassword('');
     setDesignation(roles[0]?.designation || 'Admin');
     setActive(true);
@@ -113,6 +115,7 @@ const UsersTab: React.FC<{
     setEditing(u);
     setName(u.name);
     setUsername(u.username);
+    setEmail(u.email || '');
     setPassword('');
     setDesignation(u.designation);
     setActive(u.active === 1);
@@ -136,9 +139,10 @@ const UsersTab: React.FC<{
           password: password || undefined,
           designation,
           active,
+          email: email.trim() || undefined,
         });
       } else {
-        await auditApi.createUser({ name: name.trim(), username: username.trim(), password, designation, active });
+        await auditApi.createUser({ name: name.trim(), username: username.trim(), password, designation, active, email: email.trim() || undefined });
       }
       await onChanged();
       setModalOpen(false);
@@ -194,6 +198,7 @@ const UsersTab: React.FC<{
               <tr>
                 <th className="p-3 pl-4">Name</th>
                 <th className="p-3">Username</th>
+                <th className="p-3">Email</th>
                 <th className="p-3">Designation</th>
                 <th className="p-3">Status</th>
                 <th className="p-3 pr-4 text-right">Actions</th>
@@ -202,7 +207,7 @@ const UsersTab: React.FC<{
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">
+                  <td colSpan={6} className="p-8 text-center text-slate-400">
                     No users registered yet.
                   </td>
                 </tr>
@@ -216,6 +221,7 @@ const UsersTab: React.FC<{
                       {u.name}
                     </td>
                     <td className="p-3 font-mono text-slate-500">{u.username}</td>
+                    <td className="p-3 text-slate-500">{u.email || <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="p-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                         {u.designation}
@@ -289,6 +295,18 @@ const UsersTab: React.FC<{
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Username *</label>
                 <input value={username} onChange={(e) => setUsername(e.target.value)} className={inputCls} placeholder="e.g. karan" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Email <span className="text-slate-400">(receives login OTP)</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputCls}
+                  placeholder="e.g. karan@company.com"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">

@@ -50,6 +50,11 @@ function runMigrations(database: DatabaseSync): void {
       database.exec(`ALTER TABLE website_audits ADD COLUMN ${name} ${ddl}`);
     }
   }
+
+  const userCols = tableColumns('users');
+  if (!userCols.has('email')) {
+    database.exec('ALTER TABLE users ADD COLUMN email TEXT');
+  }
 }
 
 export function normalizeUrl(input: string): string {

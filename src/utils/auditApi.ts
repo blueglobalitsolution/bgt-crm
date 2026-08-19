@@ -166,20 +166,38 @@ export const auditApi = {
   clearArchivedLeads: () => request<{ ok: true; deleted: number }>('/api/datacenter/leads', { method: 'DELETE' }),
 
   // ── Users & roles ──
-  login: (username: string, password: string) =>
+  login: (email: string, password: string) =>
     request<{ user: User; token: string; permissions: string[] }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ ok: true; sentTo: string; delivered: boolean; expiresInSeconds: number }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyResetOtp: (email: string, otp: string) =>
+    request<{ ok: true }>('/api/auth/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+
+  resetPassword: (email: string, otp: string, newPassword: string) =>
+    request<{ ok: true }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
     }),
 
   getMe: () => request<{ user: User; permissions: string[] }>('/api/auth/me'),
 
   listUsers: () => request<{ users: User[] }>('/api/users'),
 
-  createUser: (payload: { name: string; username: string; password: string; designation: string; active?: boolean }) =>
+  createUser: (payload: { name: string; username: string; password: string; designation: string; active?: boolean; email?: string }) =>
     request<{ ok: true }>('/api/users', { method: 'POST', body: JSON.stringify(payload) }),
 
-  updateUser: (id: string, payload: { name?: string; username?: string; password?: string; designation?: string; active?: boolean }) =>
+  updateUser: (id: string, payload: { name?: string; username?: string; password?: string; designation?: string; active?: boolean; email?: string }) =>
     request<{ ok: true }>(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
 
   deleteUser: (id: string) => request<{ ok: true }>(`/api/users/${id}`, { method: 'DELETE' }),

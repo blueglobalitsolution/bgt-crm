@@ -9,7 +9,7 @@ interface AuthContextType {
   users: User[];
   roles: Designation[];
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUsers: () => Promise<void>;
   refreshRoles: () => Promise<void>;
@@ -76,8 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(
-    async (username: string, password: string) => {
-      const res = await auditApi.login(username, password);
+    async (email: string, password: string) => {
+      const res = await auditApi.login(email, password);
       setAuthToken(res.token);
       setUser(res.user);
       setPermissions(res.permissions);
@@ -116,20 +116,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = !!user && user.designation === 'Admin';
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        users,
-        roles,
-        loading,
-        login,
-        logout,
-        refreshUsers,
-        refreshRoles,
-        can,
-        isAdmin,
-      }}
-    >
+      <AuthContext.Provider
+        value={{
+          user,
+          users,
+          roles,
+          loading,
+          login,
+          logout,
+          refreshUsers,
+          refreshRoles,
+          can,
+          isAdmin,
+        }}
+      >
       {children}
     </AuthContext.Provider>
   );

@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   designation   TEXT NOT NULL,
   active        INTEGER DEFAULT 1,
+  email         TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
