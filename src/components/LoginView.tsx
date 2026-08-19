@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, LogIn, Loader2, Sparkles, KeyRound } from 'lucide-react';
+import { Lock, Mail, LogIn, Loader2, KeyRound } from 'lucide-react';
 import { ForgotPasswordView } from './ForgotPasswordView';
 
 export const LoginView: React.FC = () => {
@@ -99,14 +99,6 @@ export const LoginView: React.FC = () => {
               {busy ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-4 flex items-start gap-2 text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 rounded-xl p-3">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            <span>
-              Default admin: <strong className="text-slate-600 dark:text-slate-300">blueglobtech@gmail.com</strong> /{' '}
-              <strong className="text-slate-600 dark:text-slate-300">admin123</strong> — change it in Settings.
-            </span>
-          </div>
         </div>
       </div>
     </div>
