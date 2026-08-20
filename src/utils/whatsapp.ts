@@ -1,6 +1,6 @@
 // Shared WhatsApp helpers (used by the communication modal and the composer widget).
 
-let waWindow: Window | null = null;
+import { Lead } from '../types';
 
 export function cleanPhone(phone?: string): string {
   if (!phone) return '';
@@ -12,24 +12,17 @@ export function cleanPhone(phone?: string): string {
 export function buildWhatsAppUrl(phone?: string, text = ''): string {
   const formatted = cleanPhone(phone);
   const encoded = encodeURIComponent(text);
-  return `https://web.whatsapp.com/send?phone=${formatted}&text=${encoded}`;
+  // wa.me is the universal click-to-chat link: on mobile it opens the native
+  // WhatsApp/WhatsApp Business app with the text pre-filled; on desktop it
+  // opens WhatsApp Web in a new tab.
+  return `https://wa.me/${formatted}?text=${encoded}`;
 }
 
-/**
- * Opens WhatsApp Web in a small popout window. Reuses the same window so we
- * never stack multiple popups: a live reference is navigated via location.href,
- * and it is re-opened if it was closed.
- */
-export function openWhatsAppPopout(url: string): Window | null {
-  if (waWindow && !waWindow.closed) {
-    waWindow.location.href = url;
-    try {
-      waWindow.focus();
-    } catch {
-      /* ignore */
-    }
-    return waWindow;
-  }
-  waWindow = window.open(url, 'bgt-whatsapp', 'width=520,height=760,resizable=yes,scrollbars=yes');
-  return waWindow;
+export function buildWhatsAppDraftMessage(lead: Lead): string {
+  const servicesStr = lead.interestedServices?.join(', ') || 'Digital Marketing Services';
+  return `Hi ${lead.contactPerson || 'there'}, greeting from BGT Digital Marketing! I am reaching out regarding your interest in ${servicesStr} for ${lead.companyName}. When is a good time to connect for a quick 5-minute call?`;
+}
+
+export function openWhatsApp(url: string): Window | null {
+  return window.open(url, '_blank', 'noopener,noreferrer');
 }

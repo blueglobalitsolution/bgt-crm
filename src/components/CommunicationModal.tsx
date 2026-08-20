@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Lead } from '../types';
 import { Phone, MessageSquare, X, Send, Copy, Sparkles, Check, ExternalLink } from 'lucide-react';
 import { useCRM } from '../context/CRMContext';
-import { cleanPhone, openWhatsAppPopout } from '../utils/whatsapp';
+import { cleanPhone, buildWhatsAppUrl, buildWhatsAppDraftMessage, openWhatsApp } from '../utils/whatsapp';
 import { useEscapeClose } from '../hooks/useEscapeClose';
 
 interface CommunicationModalProps {
@@ -22,22 +22,17 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [loadingAi, setLoadingAi] = useState(false);
   const [callNotes, setCallNotes] = useState('');
-  const [messageText, setMessageText] = useState(() => {
-    const servicesStr = lead.interestedServices?.join(', ') || 'Digital Marketing Services';
-    return `Hi ${lead.contactPerson || 'there'}, greeting from BGT Digital Marketing! I am reaching out regarding your interest in ${servicesStr} for ${lead.companyName}. When is a good time to connect for a quick 5-minute call?`;
-  });
+  const [messageText, setMessageText] = useState(() => buildWhatsAppDraftMessage(lead));
 
   useEscapeClose(onClose, !!(lead && mode));
 
   const formattedPhone = cleanPhone(lead.whatsapp || lead.mobile);
 
   const handleSendWhatsApp = () => {
-    const encoded = encodeURIComponent(messageText);
-    // Open WhatsApp Web in the same browser; if the business account is logged in,
-    // it opens directly to this contact's chat with the prefilled message.
-    // Uses a named popout window so the CRM stays open and no tab switch is needed.
-    const url = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encoded}`;
-    openWhatsAppPopout(url);
+    // wa.me opens the native WhatsApp app on mobile (WhatsApp Business if that
+    // is the registered handler) with the message pre-filled; on desktop it
+    // opens WhatsApp Web in a new tab.
+    openWhatsApp(buildWhatsAppUrl(formattedPhone, messageText));
 
     // Log Activity
     addActivity(lead.id, {
@@ -86,9 +81,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
   };
 
   const handleOpenWhatsAppWeb = () => {
-    const encoded = encodeURIComponent(messageText);
-    const url = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encoded}`;
-    openWhatsAppPopout(url);
+    openWhatsApp(buildWhatsAppUrl(formattedPhone, messageText));
   };
 
   return (
@@ -189,7 +182,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
                     className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 font-semibold cursor-pointer"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    Open WhatsApp Web
+                    Open WhatsApp
                   </button>
                 </span>
                 <button
