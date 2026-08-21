@@ -1,9 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { X, Loader2, UserRound, Briefcase, Plus, Trash2 } from 'lucide-react';
-import { Lead, Client, DIGITAL_MARKETING_SERVICES, SUBSCRIPTION_TYPES } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Loader2, UserRound, Briefcase, Plus, Trash2, Image as ImageIcon, MapPin, ClipboardCheck } from 'lucide-react';
+import { Lead, Client, ExtractedBusinessInfo, ClientOnboarding, ContactPerson, DIGITAL_MARKETING_SERVICES, SUBSCRIPTION_TYPES } from '../types';
 import { auditApi } from '../utils/auditApi';
 import { useAuth } from '../context/AuthContext';
 import { useEscapeClose } from '../hooks/useEscapeClose';
+import { useBusinessIntel } from '../hooks/useBusinessIntel';
+import { BusinessIntelConfirmModal } from './BusinessIntelConfirmModal';
+import { ContactsEditor } from './ContactsEditor';
+import { OnboardingEditor } from './onboarding/OnboardingEditor';
+import { generateChecklist } from '../utils/onboardingFields';
+import { externalHref } from '../utils/url';
 
 interface SubDraft {
   key: string;
@@ -31,11 +37,70 @@ let subKeySeq = 0;
 const newSubKey = () => `sub-${Date.now()}-${subKeySeq++}`;
 
 export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, client, onClose, onSaved }) => {
-  const { users } = useAuth();
+  const { users, can } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEscapeClose(onClose, isOpen);
+
+  // Business intelligence import (image OCR / Google Maps link)
+  const {
+    loading: intelLoading,
+    error: intelError,
+    extractFromImage,
+    extractFromGMB,
+    clearError: clearIntelError,
+  } = useBusinessIntel();
+  const [intelOpen, setIntelOpen] = useState(false);
+  const [intelSource, setIntelSource] = useState<'image' | 'gmb'>('image');
+  const [intelData, setIntelData] = useState<ExtractedBusinessInfo | null>(null);
+  const [gmbUrl, setGmbUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openIntel = (source: 'image' | 'gmb') => {
+    clearIntelError();
+    setIntelSource(source);
+    setIntelData(null);
+    setIntelOpen(true);
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    openIntel('image');
+    const data = await extractFromImage(file);
+    if (data) setIntelData(data);
+  };
+
+  const handleGmbImport = async () => {
+    if (!gmbUrl.trim()) {
+      alert('Please paste a Google Maps / My Business link first.');
+      return;
+    }
+    openIntel('gmb');
+    const data = await extractFromGMB(gmbUrl.trim());
+    if (data) setIntelData(data);
+  };
+
+  const handleApplyIntel = (data: ExtractedBusinessInfo) => {
+    if (data.companyName) setCompanyName(data.companyName);
+    if (data.contactPerson) setContactPerson(data.contactPerson);
+    if (data.mobile) setMobile(data.mobile);
+    if (data.whatsapp) setMobile(data.whatsapp);
+    if (data.email) setEmail(data.email);
+    if (data.website) setWebsite(data.website);
+    if (data.address) setNotes(data.address);
+    setIntelOpen(false);
+    setIntelData(null);
+    setGmbUrl('');
+  };
+
+  const handleCancelIntel = () => {
+    setIntelOpen(false);
+    setIntelData(null);
+    clearIntelError();
+  };
 
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -51,6 +116,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
   const [agreementStatus, setAgreementStatus] = useState('Active');
   const [notes, setNotes] = useState('');
   const [subscriptions, setSubscriptions] = useState<SubDraft[]>([]);
+  const [contacts, setContacts] = useState<ContactPerson[]>([]);
+  const [onboarding, setOnboarding] = useState<ClientOnboarding | undefined>(undefined);
+  const [onboardingTab, setOnboardingTab] = useState('businessProfile');
+  const canEditCredentials = can('customers.manage');
 
   const emptySub = (): SubDraft => ({
     key: newSubKey(),
@@ -92,6 +161,15 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
           status: s.status || 'Active',
         }))
       );
+      setOnboarding(client?.onboarding || (lead ? { status: 'pending', checklist: generateChecklist(lead.interestedServices || []) } : undefined));
+      setContacts(
+        (client?.contacts && client.contacts.length > 0
+          ? client.contacts
+          : lead?.contacts && lead.contacts.length > 0
+          ? lead.contacts
+          : []
+        ).map((c) => ({ ...c, id: c.id || newSubKey() }))
+      );
     } else {
       setCompanyName('');
       setContactPerson('');
@@ -107,8 +185,18 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
       setAgreementStatus('Active');
       setNotes('');
       setSubscriptions([emptySub()]);
+      setContacts([]);
+      setOnboarding({ status: 'pending', checklist: generateChecklist([]) });
     }
   }, [isOpen, lead, client]);
+
+  // In new-customer mode (no client/lead), regenerate the onboarding checklist
+  // live as the user adds/removes subscribed services.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (client || lead) return;
+    setOnboarding((prev) => ({ status: 'pending', checklist: generateChecklist(services) }));
+  }, [services, isOpen, client, lead]);
 
   if (!isOpen) return null;
 
@@ -136,9 +224,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
       const payload: Partial<Client> = {
         companyName: companyName.trim(),
         contactPerson: contactPerson.trim() || undefined,
+        contacts: contacts.length > 0 ? contacts : undefined,
         mobile: mobile.trim() || undefined,
         email: email.trim() || undefined,
-        website: website.trim() || undefined,
+        website: externalHref(website) || undefined,
         contractValue: Number(contractValue) || 0,
         monthlyRetainer: Number(monthlyRetainer) || 0,
         startDate: startDate || undefined,
@@ -147,6 +236,17 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
         accountManager: accountManager || undefined,
         agreementStatus,
         notes: notes.trim() || undefined,
+        onboarding: onboarding
+          ? {
+              ...onboarding,
+              businessProfile: onboarding.businessProfile
+                ? {
+                    ...onboarding.businessProfile,
+                    googleMapLink: externalHref(onboarding.businessProfile.googleMapLink),
+                  }
+                : onboarding.businessProfile,
+            }
+          : undefined,
       };
       let savedClientId: string | null = null;
       if (client) {
@@ -155,6 +255,20 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
       } else if (lead) {
         const conv = await auditApi.convertLeadToClient(lead.id, payload);
         savedClientId = conv.client.id;
+      } else {
+        const newClient: Client = {
+          ...(payload as Client),
+          id: `client-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          companyName: companyName.trim(),
+          services,
+          contractValue: Number(contractValue) || 0,
+          monthlyRetainer: Number(monthlyRetainer) || 0,
+          agreementStatus,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        const created = await auditApi.createClient(newClient);
+        savedClientId = created.client.id;
       }
 
       // Sync subscriptions (create new, update existing, delete removed)
@@ -196,10 +310,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
             </div>
             <div>
               <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-                {client ? 'Edit Client' : 'Convert to Client'}
+                {client ? 'Edit Client' : lead ? 'Convert to Client' : '+ New Customer'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {lead ? `Converting "${lead.companyName}" into an active client` : client?.companyName}
+                {lead ? `Converting "${lead.companyName}" into an active client` : client?.companyName || 'Onboard a new customer directly'}
               </p>
             </div>
           </div>
@@ -209,6 +323,61 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
         </div>
 
         <form onSubmit={handleSave} className="p-5 overflow-y-auto space-y-4">
+          {/* Business Intelligence Import */}
+          <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 rounded-xl p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                <UserRound className="w-3.5 h-3.5" />
+                Auto-fill Business Info
+              </h4>
+              <span className="text-[10px] text-indigo-500 dark:text-indigo-400">
+                Upload an image or paste a Google Maps link
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={intelLoading}
+                className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Upload Image
+              </button>
+              <div className="flex flex-1 gap-2 min-w-0">
+                <input
+                  type="text"
+                  value={gmbUrl}
+                  onChange={(e) => setGmbUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGmbImport()}
+                  placeholder="Paste Google Maps / My Business link…"
+                  className="flex-1 min-w-0 w-full text-xs rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleGmbImport}
+                  disabled={intelLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span className="hidden sm:inline">Fetch</span>
+                </button>
+              </div>
+            </div>
+            {intelLoading && (
+              <p className="mt-2 text-[10px] text-indigo-500 animate-pulse">
+                {intelSource === 'image' ? 'Analyzing image…' : 'Looking up business on Google Maps…'}
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Company Name *</label>
@@ -230,6 +399,16 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Website</label>
               <input value={website} onChange={(e) => setWebsite(e.target.value)} className={inputCls} />
             </div>
+          </div>
+
+          {/* Multiple Contact Persons */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Contact Persons
+              </label>
+            </div>
+            <ContactsEditor contacts={contacts} onChange={setContacts} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -396,6 +575,33 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} placeholder="Contract notes, scope, billing terms…" />
           </div>
 
+          {/* Onboarding — service-based customer information */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                  <ClipboardCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Customer Onboarding</h3>
+                  <p className="text-[10px] text-slate-400">All customer access details, social profiles & marketing info (auto-generated from services)</p>
+                </div>
+              </div>
+            </div>
+            {onboarding ? (
+              <OnboardingEditor
+                value={onboarding}
+                onChange={setOnboarding}
+                services={services}
+                activeTab={onboardingTab}
+                setActiveTab={setOnboardingTab}
+                canEditCredentials={canEditCredentials}
+              />
+            ) : (
+              <p className="text-xs text-slate-400 italic">Open the form from a lead to initialize onboarding.</p>
+            )}
+          </div>
+
           {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
 
           <div className="flex items-center justify-end gap-2 pt-1">
@@ -404,11 +610,21 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, lead, 
             </button>
             <button type="submit" disabled={busy} className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm disabled:opacity-60">
               {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {client ? 'Save Client' : 'Convert to Client'}
+              {client ? 'Save Client' : lead ? 'Convert to Client' : 'Add Customer'}
             </button>
           </div>
         </form>
       </div>
+
+      <BusinessIntelConfirmModal
+        isOpen={intelOpen}
+        loading={intelLoading}
+        error={intelError}
+        data={intelData}
+        source={intelSource}
+        onCancel={handleCancelIntel}
+        onApply={handleApplyIntel}
+      />
     </div>
   );
 };

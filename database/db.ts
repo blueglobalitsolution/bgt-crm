@@ -55,6 +55,40 @@ function runMigrations(database: DatabaseSync): void {
   if (!userCols.has('email')) {
     database.exec('ALTER TABLE users ADD COLUMN email TEXT');
   }
+
+  const clientCols = tableColumns('clients');
+  if (!clientCols.has('onboarding_data')) {
+    database.exec('ALTER TABLE clients ADD COLUMN onboarding_data TEXT');
+  }
+  if (!clientCols.has('contacts_data')) {
+    database.exec('ALTER TABLE clients ADD COLUMN contacts_data TEXT');
+  }
+
+  // subscription_monthly_logs is created by schema.sql on fresh DBs; older DBs
+  // that ran before the table existed get it here.
+  const existingTables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='subscription_monthly_logs'").all();
+  if (existingTables.length === 0) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS subscription_monthly_logs (
+        id              TEXT PRIMARY KEY,
+        subscription_id TEXT NOT NULL REFERENCES client_subscriptions(id) ON DELETE CASCADE,
+        month           TEXT,
+        posts           INTEGER DEFAULT 0,
+        reels           INTEGER DEFAULT 0,
+        total           INTEGER DEFAULT 0,
+        data            TEXT,
+        recorded_by     TEXT,
+        recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_monthly_logs_sub ON subscription_monthly_logs(subscription_id);
+    `);
+  }
+
+  // Older DBs: ensure the generic JSON "data" column exists.
+  const logCols = tableColumns('subscription_monthly_logs');
+  if (logCols.size > 0 && !logCols.has('data')) {
+    database.exec('ALTER TABLE subscription_monthly_logs ADD COLUMN data TEXT');
+  }
 }
 
 export function normalizeUrl(input: string): string {

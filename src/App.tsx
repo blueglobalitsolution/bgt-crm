@@ -11,6 +11,7 @@ import { CommunicationModal } from './components/CommunicationModal';
 import { FollowupsView } from './components/FollowupsView';
 import { CustomersView } from './components/CustomersView';
 import { PipelineKanban } from './components/PipelineKanban';
+import { PipelineFunnelView } from './components/PipelineFunnelView';
 import { ExcelImportView } from './components/ExcelImportView';
 import { ReportsView } from './components/ReportsView';
 import { WebsiteAuditView } from './components/WebsiteAuditView';
@@ -18,7 +19,7 @@ import { SettingsView } from './components/SettingsView';
 import { DatacenterView } from './components/DatacenterView';
 import { UsersView } from './components/UsersView';
 import { useAuditMonitor } from './hooks/useAuditMonitor';
-import { Lead } from './types';
+import { Lead, LeadStatus } from './types';
 import { Menu, Loader2, LogOut, ShieldCheck } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
@@ -30,6 +31,10 @@ const MainAppContent: React.FC = () => {
 
   // Mobile Sidebar Toggle
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Pipeline view mode: funnel (default) vs kanban
+  const [pipelineView, setPipelineView] = useState<'funnel' | 'kanban'>('funnel');
+  const [funnelStage, setFunnelStage] = useState<LeadStatus | null>(null);
 
   // Selected Lead for Detail Drawer
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -217,13 +222,27 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {activeTab === 'pipeline' && (
-            <PipelineKanban
-              onSelectLead={setSelectedLead}
-              onOpenComm={handleOpenComm}
-              onOpenAddLead={handleOpenAddLead}
-            />
-          )}
+          {activeTab === 'pipeline' &&
+            (pipelineView === 'funnel' ? (
+              <PipelineFunnelView
+                onSelectLead={setSelectedLead}
+                onOpenComm={handleOpenComm}
+                onOpenAddLead={handleOpenAddLead}
+                onToggleKanban={() => setPipelineView('kanban')}
+                selectedStage={funnelStage}
+                onSelectStage={setFunnelStage}
+              />
+            ) : (
+              <PipelineKanban
+                onSelectLead={setSelectedLead}
+                onOpenComm={handleOpenComm}
+                onOpenAddLead={handleOpenAddLead}
+                onViewAll={(status) => {
+                  setFunnelStage(status);
+                  setPipelineView('funnel');
+                }}
+              />
+            ))}
 
           {activeTab === 'import' && <ExcelImportView />}
 

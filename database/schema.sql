@@ -181,6 +181,8 @@ CREATE TABLE IF NOT EXISTS clients (
   account_manager  TEXT,
   agreement_status TEXT DEFAULT 'Active',
   notes            TEXT,
+  onboarding_data  TEXT,
+  contacts_data    TEXT,
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -204,6 +206,20 @@ CREATE TABLE IF NOT EXISTS client_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON client_subscriptions(client_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON client_subscriptions(status);
+
+CREATE TABLE IF NOT EXISTS subscription_monthly_logs (
+  id              TEXT PRIMARY KEY,
+  subscription_id TEXT NOT NULL REFERENCES client_subscriptions(id) ON DELETE CASCADE,
+  month           TEXT,
+  posts           INTEGER DEFAULT 0,
+  reels           INTEGER DEFAULT 0,
+  total           INTEGER DEFAULT 0,
+  data            TEXT,
+  recorded_by     TEXT,
+  recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_monthly_logs_sub ON subscription_monthly_logs(subscription_id);
 
 CREATE INDEX IF NOT EXISTS idx_websites_lead ON websites(lead_id);
 CREATE INDEX IF NOT EXISTS idx_audits_website ON website_audits(website_id);

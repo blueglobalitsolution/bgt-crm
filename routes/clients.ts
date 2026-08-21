@@ -12,6 +12,9 @@ import {
   getSubscription,
   upsertSubscription,
   deleteSubscription,
+  getMonthlyLog,
+  upsertMonthlyLog,
+  deleteMonthlyLog,
   ClientRow,
 } from '../database/repository';
 import { requireAuth, requirePerm } from '../middleware/auth';
@@ -109,6 +112,53 @@ router.delete('/subscriptions/:id', requirePerm('customers.manage'), (req: Reque
   res.json({ ok: true });
 });
 
+// ─── Subscription monthly content logs (posts + reels per month) ───────────
+
+router.post('/subscriptions/:id/monthly-logs', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const { month, posts, reels, fields } = req.body || {};
+  const existing = getSubscription(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Subscription not found' });
+  const client = getClient(existing.clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  const f = fields && typeof fields === 'object' ? fields : {};
+  if (!f.month && !month && !f.date && !f.task && !f.deliverable && !f.quantity && !f.remarks) {
+    return res.status(400).json({ error: 'Entry details are required' });
+  }
+  const id = `mlog-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const data = { ...f, month: f.month || month };
+  if (!('posts' in data)) data.posts = Number(posts) || 0;
+  if (!('reels' in data)) data.reels = Number(reels) || 0;
+  upsertMonthlyLog({ id, subscriptionId: existing.id, fields: data, recordedBy: req.user!.name });
+  res.status(201).json({ ok: true, log: getMonthlyLog(id) });
+});
+
+router.put('/subscriptions/:id/monthly-logs/:logId', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const existing = getSubscription(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Subscription not found' });
+  const client = getClient(existing.clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  const log = getMonthlyLog(req.params.logId);
+  if (!log || log.subscriptionId !== existing.id) return res.status(404).json({ error: 'Monthly log not found' });
+  const body = req.body || {};
+  const fields = body.fields && typeof body.fields === 'object' ? { ...(log.fields || {}), ...body.fields } : log.fields;
+  if (body.month !== undefined) fields.month = body.month;
+  if (body.posts !== undefined) fields.posts = Number(body.posts) || 0;
+  if (body.reels !== undefined) fields.reels = Number(body.reels) || 0;
+  upsertMonthlyLog({ id: log.id, subscriptionId: existing.id, fields, recordedBy: log.recordedBy || req.user!.name });
+  res.json({ ok: true, log: getMonthlyLog(log.id) });
+});
+
+router.delete('/subscriptions/:id/monthly-logs/:logId', requirePerm('customers.manage'), (req: Request, res: Response) => {
+  const existing = getSubscription(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Subscription not found' });
+  const client = getClient(existing.clientId);
+  if (!client || !clientAccessible(req, client)) return res.status(404).json({ error: 'Client not found' });
+  const log = getMonthlyLog(req.params.logId);
+  if (!log || log.subscriptionId !== existing.id) return res.status(404).json({ error: 'Monthly log not found' });
+  deleteMonthlyLog(log.id);
+  res.json({ ok: true });
+});
+
 router.post('/clients', requirePerm('customers.manage'), (req: Request, res: Response) => {
   const { client } = req.body || {};
   if (!client || !client.id || !client.companyName) {
@@ -146,6 +196,20 @@ router.post('/clients/convert', requirePerm('customers.manage'), (req: Request, 
     accountManager: client.accountManager || lead.assignedTo || req.user!.name,
     agreementStatus: client.agreementStatus || 'Active',
     notes: client.notes || undefined,
+    onboarding: client.onboarding || undefined,
+    contacts: Array.isArray(client.contacts) && client.contacts.length > 0
+      ? client.contacts
+      : [
+          {
+            id: `contact-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: lead.contactPerson || client.contactPerson || 'Primary Contact',
+            mobile: lead.mobile || client.mobile,
+            whatsapp: lead.whatsapp,
+            email: lead.email || client.email,
+            role: 'Primary Contact',
+            isPrimary: true,
+          },
+        ],
   };
   upsertClient(clientRow);
   if (lead.status !== 'Won') {

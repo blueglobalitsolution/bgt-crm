@@ -11,6 +11,7 @@ import { leadsRouter } from './routes/leads';
 import { adminRouter } from './routes/admin';
 import { clientsRouter } from './routes/clients';
 import { followupsRouter } from './routes/followups';
+import { businessIntelRouter } from './routes/business-intel';
 import { seedDefaultData, sweepOrphanedAudits, backupDatabase, seedClientsFromWonLeads, seedClientSubscriptions, migrateLegacyStatuses } from './database/repository';
 import { getDb } from './database/db';
 
@@ -100,6 +101,9 @@ async function startServer() {
 
   // Admin ops (backup)
   app.use('/api', adminRouter);
+
+  // Business intelligence (OCR image extraction + Google Maps / GMB resolution)
+  app.use('/api/business-intel', businessIntelRouter);
 
   // Initialize Gemini AI Client
   let ai: GoogleGenAI | null = null;

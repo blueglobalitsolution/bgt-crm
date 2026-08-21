@@ -3,7 +3,9 @@ import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
 import { Lead, Client } from '../types';
 import { auditApi } from '../utils/auditApi';
+import { onboardingProgress } from '../utils/onboardingFields';
 import { ClientFormModal } from './ClientFormModal';
+import { CustomerDetailView } from './CustomerDetailView';
 import {
   Building2,
   Phone,
@@ -17,6 +19,7 @@ import {
   Pencil,
   ChevronDown,
   ChevronRight,
+  UserPlus,
 } from 'lucide-react';
 
 interface CustomersViewProps {
@@ -35,6 +38,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [editing, setEditing] = useState<Client | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewing, setViewing] = useState<Client | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
@@ -149,6 +153,26 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
     return map[status] || map.Active;
   };
 
+  const onboardingBadge = (o?: Client['onboarding']) => {
+    const { pct } = onboardingProgress(o);
+    if (pct === 100) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
+    if (pct > 0) return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300';
+    return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+  };
+
+  const onboardingLabel = (o?: Client['onboarding']) => {
+    const { done, total, pct } = onboardingProgress(o);
+    if (total === 0) return 'Pending';
+    if (pct === 100) return '✓ Complete';
+    return `${done}/${total}`;
+  };
+
+  const primaryContact = (c: Client) => {
+    const contacts = c.contacts || [];
+    if (contacts.length === 0) return undefined;
+    return contacts.find((x) => x.isPrimary) || contacts[0];
+  };
+
   const billingTypeBadge = (t: string) => {
     const map: Record<string, string> = {
       Monthly: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
@@ -176,7 +200,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
           </div>
           <h2 className="text-2xl font-bold tracking-tight">Customer / Client Accounts</h2>
           <p className="text-xs text-emerald-200 mt-1">
-            Leads converted to clients with signed contracts & monthly retainers.
+            Converted leads plus directly onboarded customers, with contracts, retainers & onboarding details.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -196,6 +220,18 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
             <div className="text-[10px] uppercase font-semibold text-amber-300">Expiring Soon</div>
             <div className="text-xl font-extrabold text-white">{expiringCount}</div>
           </div>
+          {can('customers.manage') && (
+            <button
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white text-emerald-800 hover:bg-emerald-50 shadow-md transition-colors"
+            >
+              <UserPlus className="w-4 h-4" />
+              New Customer
+            </button>
+          )}
         </div>
       </div>
 
@@ -244,6 +280,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
                   <th className="px-3 py-3">Customer</th>
                   <th className="px-3 py-3">Account Mgr</th>
                   <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Onboarding</th>
                   <th className="px-3 py-3">Remaining</th>
                   <th className="px-3 py-3 text-right">MRR</th>
                   <th className="px-3 py-3 text-center">Active Subs</th>
@@ -254,7 +291,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {filtered.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-10 text-center text-slate-400">
+                    <td colSpan={10} className="px-3 py-10 text-center 
+text-slate-400">
                       No clients match the current filter.
                     </td>
                   </tr>
@@ -289,8 +327,14 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
                                 >
                                   {client.companyName}
                                 </div>
-                                <div className="text-[10px] text-slate-400">
-                                  {client.contactPerson || '—'}{client.mobile ? ` • ${client.mobile}` : ''}
+                                <div className="text-[10px] text-slate-400 flex items-center gap-1 flex-wrap">
+                                  {(primaryContact(client)?.name || client.contactPerson || '—')}
+                                  {(primaryContact(client)?.mobile || client.mobile) ? ` • ${primaryContact(client)?.mobile || client.mobile}` : ''}
+                                  {client.contacts && client.contacts.length > 1 && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                      +{client.contacts.length - 1} more
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -299,6 +343,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
                           <td className="px-3 py-2.5">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadge(client.agreementStatus)}`}>
                               {client.agreementStatus}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${onboardingBadge(client.onboarding)}`}>
+                              {onboardingLabel(client.onboarding)}
                             </span>
                           </td>
                           <td className="px-3 py-2.5">
@@ -323,6 +372,13 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
                           </td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center justify-end gap-0.5">
+                              <button
+                                onClick={() => setViewing(client)}
+                                title="View all customer details"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
                               {client.website && onOpenWebsiteAudit && (
                                 <button onClick={() => onOpenWebsiteAudit(client.website!)} title="Website audit" className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors">
                                   <Play className="w-3.5 h-3.5" />
@@ -369,7 +425,40 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
                         </tr>
                         {isOpen && (
                           <tr className="bg-slate-50/70 dark:bg-slate-800/40">
-                            <td colSpan={9} className="px-3 py-3 pl-12 pr-4">
+                            <td colSpan={10} className="px-3 py-3 pl-12 pr-4 space-y-4">
+                              {client.contacts && client.contacts.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                                    Contact Persons ({client.contacts.length})
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    {client.contacts.map((pc) => (
+                                      <div
+                                        key={pc.id}
+                                        className={`bg-white dark:bg-slate-900 border rounded-xl p-2.5 text-[11px] ${
+                                          pc.isPrimary ? 'border-blue-300 dark:border-blue-800 ring-1 ring-blue-200 dark:ring-blue-900/50' : 'border-slate-200 dark:border-slate-700'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200">
+                                          {pc.name || '—'}
+                                          {pc.isPrimary && (
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                                              Primary
+                                            </span>
+                                          )}
+                                        </div>
+                                        {pc.role && <div className="text-[10px] text-slate-400">{pc.role}</div>}
+                                        <div className="mt-1 space-y-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                                          {pc.mobile && <div>📞 {pc.mobile}</div>}
+                                          {pc.whatsapp && <div>💬 {pc.whatsapp}</div>}
+                                          {pc.email && <div className="truncate">✉️ {pc.email}</div>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               {subs.length === 0 ? (
                                 <p className="text-[11px] text-slate-400 italic">No service subscriptions added for this customer yet.</p>
                               ) : (
@@ -447,6 +536,18 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ onSelectLead, onOp
           setModalOpen(false);
           setEditing(null);
           refresh();
+        }}
+      />
+
+      <CustomerDetailView
+        client={viewing}
+        canViewCredentials={can('customers.manage')}
+        onClientUpdated={(updated) => setViewing(updated)}
+        onClose={() => setViewing(null)}
+        onEdit={(client) => {
+          setViewing(null);
+          setEditing(client);
+          setModalOpen(true);
         }}
       />
     </div>

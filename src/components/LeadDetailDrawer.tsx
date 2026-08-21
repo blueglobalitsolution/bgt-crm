@@ -202,6 +202,24 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               <span>•</span>
               <span>Assigned: <strong>{liveLead.assignedTo || 'Unassigned'}</strong></span>
             </p>
+            {liveLead.contacts && liveLead.contacts.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {liveLead.contacts.map((c) => (
+                  <div key={c.id} className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{c.name || '—'}</span>
+                    {c.isPrimary && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                        Primary
+                      </span>
+                    )}
+                    {c.role && <span className="text-slate-400">({c.role})</span>}
+                    {c.mobile && <span>📞 {c.mobile}</span>}
+                    {c.whatsapp && <span>💬 {c.whatsapp}</span>}
+                    {c.email && <span className="truncate">✉️ {c.email}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
             {liveLead.nextFollowupDate && (
               <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg px-2 py-1 mt-2 inline-flex items-center gap-1.5 font-medium">
                 <Calendar className="w-3.5 h-3.5" />

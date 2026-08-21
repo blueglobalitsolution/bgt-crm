@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Lead,
   LeadStatus,
   LeadPriority,
   FollowupType,
+  ContactPerson,
+  ExtractedBusinessInfo,
   DIGITAL_MARKETING_SERVICES,
   LEAD_SOURCES,
   LEAD_STATUS_FLOW,
@@ -13,7 +15,11 @@ import { useCRM } from '../context/CRMContext';
 import { useAuth } from '../context/AuthContext';
 import { getLocalToday, getLocalNowTime } from '../utils/auditFormat';
 import { useEscapeClose } from '../hooks/useEscapeClose';
-import { X, Save, Building2, User, Phone, Mail, Globe, Sparkles } from 'lucide-react';
+import { useBusinessIntel } from '../hooks/useBusinessIntel';
+import { BusinessIntelConfirmModal } from './BusinessIntelConfirmModal';
+import { ContactsEditor } from './ContactsEditor';
+import { externalHref } from '../utils/url';
+import { X, Save, Building2, User, Phone, Mail, Globe, Sparkles, Image as ImageIcon, MapPin } from 'lucide-react';
 
 interface LeadFormModalProps {
   isOpen: boolean;
@@ -33,8 +39,73 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
 
   useEscapeClose(onClose, isOpen);
 
+  // Business intelligence import (image OCR / Google Maps link)
+  const {
+    loading: intelLoading,
+    error: intelError,
+    extractFromImage,
+    extractFromGMB,
+    clearError: clearIntelError,
+  } = useBusinessIntel();
+  const [intelOpen, setIntelOpen] = useState(false);
+  const [intelSource, setIntelSource] = useState<'image' | 'gmb'>('image');
+  const [intelData, setIntelData] = useState<ExtractedBusinessInfo | null>(null);
+  const [gmbUrl, setGmbUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openIntel = (source: 'image' | 'gmb') => {
+    clearIntelError();
+    setIntelSource(source);
+    setIntelData(null);
+    setIntelOpen(true);
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    openIntel('image');
+    const data = await extractFromImage(file);
+    if (data) setIntelData(data);
+  };
+
+  const handleGmbImport = async () => {
+    if (!gmbUrl.trim()) {
+      alert('Please paste a Google Maps / My Business link first.');
+      return;
+    }
+    openIntel('gmb');
+    const data = await extractFromGMB(gmbUrl.trim());
+    if (data) setIntelData(data);
+  };
+
+  const handleApplyIntel = (data: ExtractedBusinessInfo) => {
+    if (data.companyName) setCompanyName(data.companyName);
+    if (data.contactPerson) setContactPerson(data.contactPerson);
+    if (data.mobile) setMobile(data.mobile);
+    if (data.whatsapp) setWhatsapp(data.whatsapp);
+    if (data.email) setEmail(data.email);
+    if (data.website) setWebsite(data.website);
+    if (data.address) setAddress(data.address);
+    if (data.city) setCity(data.city);
+    if (data.state) setState(data.state);
+    if (data.industry) setIndustry(data.industry);
+    if (data.rating != null) setRating(String(data.rating));
+    if (data.reviewCount != null) setReviewCount(String(data.reviewCount));
+    setIntelOpen(false);
+    setIntelData(null);
+    setGmbUrl('');
+  };
+
+  const handleCancelIntel = () => {
+    setIntelOpen(false);
+    setIntelData(null);
+    clearIntelError();
+  };
+
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
+  const [contacts, setContacts] = useState<ContactPerson[]>([]);
   const [mobile, setMobile] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
@@ -83,6 +154,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
     if (leadToEdit) {
       setCompanyName(leadToEdit.companyName || '');
       setContactPerson(leadToEdit.contactPerson || '');
+      setContacts((leadToEdit.contacts || []).map((c) => ({ ...c })));
       setMobile(leadToEdit.mobile || '');
       setWhatsapp(leadToEdit.whatsapp || leadToEdit.mobile || '');
       setEmail(leadToEdit.email || '');
@@ -122,6 +194,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       // Reset form
       setCompanyName('');
       setContactPerson('');
+      setContacts([]);
       setMobile('');
       setWhatsapp('');
       setEmail('');
@@ -178,10 +251,11 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
     const payload = {
       companyName: companyName.trim(),
       contactPerson: contactPerson.trim(),
+      contacts: contacts.length > 0 ? contacts : undefined,
       mobile: mobile.trim(),
       whatsapp: whatsapp.trim() || mobile.trim(),
       email: email.trim(),
-      website: website.trim(),
+      website: externalHref(website) || '',
       city: city.trim(),
       state: state.trim(),
       industry: industry.trim(),
@@ -247,6 +321,61 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
 
         {/* Modal Body Form */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6">
+          {/* Business Intelligence Import */}
+          <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 rounded-xl p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Auto-fill Business Info
+              </h4>
+              <span className="text-[10px] text-indigo-500 dark:text-indigo-400">
+                Upload an image or paste a Google Maps link
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={intelLoading}
+                className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Upload Image
+              </button>
+              <div className="flex flex-1 gap-2 min-w-0">
+                <input
+                  type="text"
+                  value={gmbUrl}
+                  onChange={(e) => setGmbUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGmbImport()}
+                  placeholder="Paste Google Maps / My Business link…"
+                  className="flex-1 min-w-0 w-full text-xs rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-indigo-500 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleGmbImport}
+                  disabled={intelLoading}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span className="hidden sm:inline">Fetch</span>
+                </button>
+              </div>
+            </div>
+            {intelLoading && (
+              <p className="mt-2 text-[10px] text-indigo-500 animate-pulse">
+                {intelSource === 'image' ? 'Analyzing image…' : 'Looking up business on Google Maps…'}
+              </p>
+            )}
+          </div>
+
           {/* Section 1: Basic Information */}
           <div>
             <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">
@@ -359,6 +488,15 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
                   className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100"
                 />
               </div>
+            </div>
+
+            <div className="mt-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Contact Persons
+                </label>
+              </div>
+              <ContactsEditor contacts={contacts} onChange={setContacts} />
             </div>
           </div>
 
@@ -685,6 +823,16 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
           </div>
         </form>
       </div>
+
+      <BusinessIntelConfirmModal
+        isOpen={intelOpen}
+        loading={intelLoading}
+        error={intelError}
+        data={intelData}
+        source={intelSource}
+        onCancel={handleCancelIntel}
+        onApply={handleApplyIntel}
+      />
     </div>
   );
 };

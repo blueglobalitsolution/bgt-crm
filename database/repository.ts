@@ -1158,6 +1158,8 @@ export interface ClientRow {
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+  onboarding?: any;
+  contacts?: any;
 }
 
 function rowToClient(r: Record<string, any>): ClientRow {
@@ -1166,6 +1168,18 @@ function rowToClient(r: Record<string, any>): ClientRow {
     services = JSON.parse(r.services || '[]');
   } catch {
     services = [];
+  }
+  let onboarding: any;
+  try {
+    onboarding = r.onboarding_data ? JSON.parse(r.onboarding_data) : undefined;
+  } catch {
+    onboarding = undefined;
+  }
+  let contacts: any;
+  try {
+    contacts = r.contacts_data ? JSON.parse(r.contacts_data) : undefined;
+  } catch {
+    contacts = undefined;
   }
   return {
     id: r.id,
@@ -1185,6 +1199,8 @@ function rowToClient(r: Record<string, any>): ClientRow {
     notes: r.notes || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    onboarding,
+    contacts,
   };
 }
 
@@ -1209,8 +1225,8 @@ export function upsertClient(client: ClientRow): void {
       `INSERT INTO clients (
         id, lead_id, company_name, contact_person, mobile, email, website,
         contract_value, monthly_retainer, start_date, end_date, services,
-        account_manager, agreement_status, notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM clients WHERE id = ?), datetime('now')), datetime('now'))
+        account_manager, agreement_status, notes, onboarding_data, contacts_data, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM clients WHERE id = ?), datetime('now')), datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
         lead_id = excluded.lead_id,
         company_name = excluded.company_name,
@@ -1226,6 +1242,8 @@ export function upsertClient(client: ClientRow): void {
         account_manager = excluded.account_manager,
         agreement_status = excluded.agreement_status,
         notes = excluded.notes,
+        onboarding_data = excluded.onboarding_data,
+        contacts_data = excluded.contacts_data,
         updated_at = datetime('now')`
     )
     .run(
@@ -1244,6 +1262,8 @@ export function upsertClient(client: ClientRow): void {
       client.accountManager || null,
       client.agreementStatus || 'Active',
       client.notes || null,
+      client.onboarding ? JSON.stringify(client.onboarding) : null,
+      client.contacts ? JSON.stringify(client.contacts) : null,
       client.id
     );
 }
@@ -1266,6 +1286,19 @@ export interface ClientSubscriptionRow {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  monthlyLogs?: SubscriptionMonthlyLogRow[];
+}
+
+export interface SubscriptionMonthlyLogRow {
+  id: string;
+  subscriptionId: string;
+  month: string;
+  posts: number;
+  reels: number;
+  total: number;
+  recordedBy?: string;
+  recordedAt?: string;
+  fields?: Record<string, any>;
 }
 
 function rowToSubscription(r: Record<string, any>): ClientSubscriptionRow {
@@ -1281,6 +1314,7 @@ function rowToSubscription(r: Record<string, any>): ClientSubscriptionRow {
     notes: r.notes || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    monthlyLogs: listMonthlyLogsForSubscription(r.id),
   };
 }
 
@@ -1333,6 +1367,74 @@ export function upsertSubscription(sub: Partial<ClientSubscriptionRow> & { id: s
 
 export function deleteSubscription(id: string): void {
   getDb().prepare('DELETE FROM client_subscriptions WHERE id = ?').run(id);
+}
+
+// ─── Subscription monthly logs (posts + reels per month) ───────────────────
+
+function rowToMonthlyLog(r: Record<string, any>): SubscriptionMonthlyLogRow {
+  let data: Record<string, any> | undefined;
+  try {
+    data = r.data ? JSON.parse(r.data) : undefined;
+  } catch {
+    data = undefined;
+  }
+  return {
+    id: r.id,
+    subscriptionId: r.subscription_id,
+    month: r.month || data?.month || '',
+    posts: r.posts || Number(data?.posts) || 0,
+    reels: r.reels || Number(data?.reels) || 0,
+    total: r.total || 0,
+    recordedBy: r.recorded_by || undefined,
+    recordedAt: r.recorded_at,
+    fields: data,
+  };
+}
+
+export function listMonthlyLogsForSubscription(subscriptionId: string): SubscriptionMonthlyLogRow[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM subscription_monthly_logs WHERE subscription_id = ? ORDER BY month DESC')
+    .all(subscriptionId) as Record<string, any>[];
+  return rows.map(rowToMonthlyLog);
+}
+
+export function getMonthlyLog(id: string): SubscriptionMonthlyLogRow | null {
+  const row = getDb().prepare('SELECT * FROM subscription_monthly_logs WHERE id = ?').get(id) as Record<string, any> | undefined;
+  return row ? rowToMonthlyLog(row) : null;
+}
+
+export function upsertMonthlyLog(log: {
+  id: string;
+  subscriptionId: string;
+  month?: string;
+  posts?: number;
+  reels?: number;
+  total?: number;
+  fields?: Record<string, any>;
+  recordedBy?: string;
+}): void {
+  const month = log.month || log.fields?.month || '';
+  const posts = log.posts ?? (Number(log.fields?.posts) || 0);
+  const reels = log.reels ?? (Number(log.fields?.reels) || 0);
+  const total = log.total ?? (Number(log.fields?.total) || posts + reels);
+  getDb()
+    .prepare(
+      `INSERT INTO subscription_monthly_logs (id, subscription_id, month, posts, reels, total, data, recorded_by, recorded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET
+         month = excluded.month,
+         posts = excluded.posts,
+         reels = excluded.reels,
+         total = excluded.total,
+         data = excluded.data,
+         recorded_by = excluded.recorded_by,
+         recorded_at = datetime('now')`
+    )
+    .run(log.id, log.subscriptionId, month, posts, reels, total, log.fields ? JSON.stringify(log.fields) : null, log.recordedBy || null);
+}
+
+export function deleteMonthlyLog(id: string): void {
+  getDb().prepare('DELETE FROM subscription_monthly_logs WHERE id = ?').run(id);
 }
 
 /** One-time migration: create subscription rows from existing client retainer/contract data. */

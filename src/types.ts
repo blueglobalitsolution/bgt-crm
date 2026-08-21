@@ -222,10 +222,22 @@ export interface Followup {
   completedAt?: string;
 }
 
+/** A single contact person for a business (multiple contacts supported). */
+export interface ContactPerson {
+  id: string;
+  name: string;
+  mobile?: string;
+  whatsapp?: string;
+  email?: string;
+  role?: string; // Owner / Manager / Centre Head / Accounts…
+  isPrimary: boolean;
+}
+
 export interface Lead {
   id: string;
   companyName: string;
   contactPerson: string;
+  contacts?: ContactPerson[];
   mobile: string;
   whatsapp?: string;
   email?: string;
@@ -268,6 +280,25 @@ export interface Lead {
   metaPixel?: string;
   whatsappWidget?: string;
   liveChat?: string;
+}
+
+/** Business info extracted from an uploaded image or Google Maps / My Business link. */
+export interface ExtractedBusinessInfo {
+  companyName?: string;
+  contactPerson?: string;
+  mobile?: string;
+  whatsapp?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  industry?: string;
+  rating?: number;
+  reviewCount?: number;
+  confidence: number; // 0-100
+  source: 'image' | 'gmb';
+  placeId?: string;
 }
 
 export interface ImportPreviewItem {
@@ -338,6 +369,7 @@ export interface Client {
   leadId?: string;
   companyName: string;
   contactPerson?: string;
+  contacts?: ContactPerson[];
   mobile?: string;
   email?: string;
   website?: string;
@@ -352,6 +384,7 @@ export interface Client {
   createdAt: string;
   updatedAt: string;
   subscriptions?: ClientSubscription[];
+  onboarding?: ClientOnboarding;
 }
 
 /** Billing types for customer service subscriptions. */
@@ -378,6 +411,182 @@ export interface ClientSubscription {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  monthlyLogs?: SubscriptionMonthlyLog[];
+}
+
+/** Monthly content delivery log for a subscription (posts + reels per month). */
+export interface SubscriptionMonthlyLog {
+  id: string;
+  subscriptionId: string;
+  month: string; // e.g. "2026-10"
+  posts: number;
+  reels: number;
+  total: number; // auto = posts + reels
+  recordedBy?: string;
+  recordedAt?: string;
+  /** Generic service-aware fields (per the delivery template). */
+  fields?: Record<string, string | number>;
+}
+
+// ─── Client Onboarding (service-based customer information) ──────────────────
+
+/** Business profile details captured at onboarding. */
+export interface BusinessProfile {
+  businessType?: string;
+  targetLocation?: string;
+  businessDescription?: string;
+  googleMapLink?: string;
+  establishedYear?: string;
+  numberOfEmployees?: string;
+  annualRevenueRange?: string;
+}
+
+/** A single email account with optional credentials. */
+export interface ContactEmail {
+  id: string;
+  label: string; // Primary / Admin / Marketing / Notifications / Other
+  email: string;
+  password?: string;
+  purpose?: string;
+}
+
+/** Hosting / domain credential. */
+export interface HostingCredential {
+  id: string;
+  provider?: string;
+  domain: string;
+  panelUrl?: string;
+  panelType?: string; // cpanel / plesk / custom / cloud
+  username?: string;
+  password?: string;
+  ftpHost?: string;
+  ftpUser?: string;
+  ftpPass?: string;
+  sslProvider?: string;
+  sslExpiry?: string;
+  notes?: string;
+}
+
+/** Website CMS credential. */
+export interface CMSCredential {
+  id: string;
+  platform?: string; // wordpress / shopify / wix / squarespace / webflow / custom
+  adminUrl?: string;
+  username?: string;
+  password?: string;
+  notes?: string;
+}
+
+/** Analytics / tracking credential. */
+export interface AnalyticsCredential {
+  id: string;
+  type: string; // ga4 / gtm / meta_pixel / search_console / bing_webmaster / clarity / hotjar
+  accountId?: string;
+  propertyId?: string;
+  accessLevel?: string;
+}
+
+/** Catch-all credential for any other platform. */
+export interface GenericCredential {
+  id: string;
+  platform: string;
+  url?: string;
+  username?: string;
+  password?: string;
+  notes?: string;
+}
+
+/** Access credentials bundle. */
+export interface AccessCredentials {
+  emails: ContactEmail[];
+  hosting: HostingCredential[];
+  cms: CMSCredential[];
+  analytics: AnalyticsCredential[];
+  other: GenericCredential[];
+}
+
+/** A social media platform account with activity + credentials. */
+export interface SocialMediaProfile {
+  id: string;
+  platform: string; // facebook / instagram / linkedin / youtube / twitter / pinterest / threads / gmb / other
+  handle?: string;
+  url?: string;
+  isActive: boolean;
+  username?: string;
+  password?: string;
+  adAccountId?: string;
+  businessManagerId?: string;
+  postsCount?: string;
+  reelsCount?: string;
+  lastPostDate?: string;
+}
+
+/** Target SEO keyword with rank tracking info. */
+export interface TargetKeyword {
+  id: string;
+  keyword: string;
+  priority: 'high' | 'medium' | 'low';
+  targetPage?: string;
+  status: string; // researching / optimizing / ranking / maintained
+}
+
+/** A competitor profile. */
+export interface CompetitorProfile {
+  id: string;
+  name: string;
+  website?: string;
+  platforms: string[];
+  strengths?: string;
+  weaknesses?: string;
+  notes?: string;
+}
+
+/** Paid ads account. */
+export interface AdAccount {
+  id: string;
+  platform: string; // meta / google / linkedin / twitter / other
+  accountId?: string;
+  accountName?: string;
+  accessLevel?: string;
+  currency?: string;
+  timezone?: string;
+}
+
+/** Monthly marketing goal. */
+export interface MonthlyGoal {
+  id: string;
+  month?: string;
+  goal?: string;
+}
+
+/** Marketing & SEO bundle. */
+export interface MarketingData {
+  seoKeywords: string[];
+  targetKeywords: TargetKeyword[];
+  adAccounts: AdAccount[];
+  monthlyGoals: MonthlyGoal[];
+  notes?: string;
+}
+
+/** Onboarding checklist item. */
+export interface OnboardingChecklistItem {
+  id: string;
+  service: string; // 'all' for base items
+  field: string;
+  label: string;
+  required: boolean;
+  completed: boolean;
+}
+
+/** Full onboarding payload attached to a Client. */
+export interface ClientOnboarding {
+  businessProfile?: BusinessProfile;
+  accessCredentials?: AccessCredentials;
+  socialMedia?: SocialMediaProfile[];
+  marketing?: MarketingData;
+  competitors?: CompetitorProfile[];
+  checklist?: OnboardingChecklistItem[];
+  status: 'pending' | 'in_progress' | 'completed';
 }
 
 export interface CRMStats {

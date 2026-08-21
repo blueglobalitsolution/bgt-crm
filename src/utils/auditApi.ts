@@ -11,6 +11,7 @@ import {
   Lead,
   Client,
   ClientSubscription,
+  SubscriptionMonthlyLog,
 } from '../types';
 export const AUTH_TOKEN_KEY = 'bgt_crm_token_v1';
 
@@ -235,6 +236,8 @@ export const auditApi = {
   // ── Clients (converted leads) ──
   listClients: () => request<{ clients: Client[] }>('/api/clients'),
 
+  getClient: (id: string) => request<{ client: Client }>(`/api/clients/${id}`),
+
   createClient: (client: Client) =>
     request<{ ok: true; client: Client }>('/api/clients', { method: 'POST', body: JSON.stringify({ client }) }),
 
@@ -262,7 +265,25 @@ export const auditApi = {
       body: JSON.stringify(sub),
     }),
 
-  deleteSubscription: (id: string) => request<{ ok: true }>(`/api/subscriptions/${id}`, { method: 'DELETE' }),
+  deleteSubscription: (id: string) => request<{ ok: true }>(`/api/subscriptions/${id}`, { 
+  method: 'DELETE' }),
+
+  // ── Subscription monthly content logs ──
+  createMonthlyLog: (subscriptionId: string, log: { month: string; posts?: number; reels?: number; fields?: Record<string, string | number> }) =>
+    request<{ ok: true; log: SubscriptionMonthlyLog }>(`/api/subscriptions/${subscriptionId}/monthly-logs`, {
+      method: 'POST',
+      body: JSON.stringify(log),
+    }),
+
+  updateMonthlyLog: (subscriptionId: string, logId: string, log: Partial<SubscriptionMonthlyLog> & { fields?: Record<string, string | number> }) =>
+    request<{ ok: true; log: SubscriptionMonthlyLog }>(`/api/subscriptions/${subscriptionId}/monthly-logs/${logId}`, {
+      method: 'PUT',
+      body: JSON.stringify(log),
+    }),
+
+  deleteMonthlyLog: (subscriptionId: string, logId: string) =>
+    request<{ ok: true }>(`/api/subscriptions/${subscriptionId}/monthly-logs/${logId}`, { method: 'DELETE' }),
+
 
   // ── Database export / import (admin + password) ──
   exportDatabase: async (password: string): Promise<{ blob: Blob; filename: string }> => {
