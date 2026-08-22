@@ -28,7 +28,7 @@ export function useBusinessIntel(): BusinessIntelResult {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(url, { ...init, headers });
+      const res = await fetch(url, { ...init, headers: { ...init.headers, ...headers } });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(body.error || `Request failed (${res.status})`);

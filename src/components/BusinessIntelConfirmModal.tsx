@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Loader2, Image as ImageIcon, MapPin, Check, AlertTriangle } from 'lucide-react';
 import { ExtractedBusinessInfo } from '../types';
 import { useEscapeClose } from '../hooks/useEscapeClose';
+import { externalHref } from '../utils/url';
 
 interface BusinessIntelConfirmModalProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ const fieldLabels: { key: keyof ExtractedBusinessInfo; label: string }[] = [
   { key: 'city', label: 'City' },
   { key: 'state', label: 'State' },
   { key: 'industry', label: 'Industry' },
+  { key: 'rating', label: 'Rating' },
+  { key: 'reviewCount', label: 'Review Count' },
 ];
 
 export const BusinessIntelConfirmModal: React.FC<BusinessIntelConfirmModalProps> = ({
@@ -46,7 +49,10 @@ export const BusinessIntelConfirmModal: React.FC<BusinessIntelConfirmModalProps>
   if (!isOpen) return null;
 
   const set = (key: keyof ExtractedBusinessInfo, value: string) => {
-    setDraft((d) => ({ ...d, [key]: value }));
+    setDraft((d) => ({
+      ...d,
+      [key]: key === 'rating' || key === 'reviewCount' ? (value === '' ? undefined : Number(value)) : value,
+    }));
   };
 
   const rating = typeof draft.rating === 'number' ? draft.rating.toFixed(1) : '';
@@ -76,6 +82,8 @@ export const BusinessIntelConfirmModal: React.FC<BusinessIntelConfirmModalProps>
             <input
               value={f.value || ''}
               onChange={(e) => set(f.key, e.target.value)}
+              type={f.key === 'rating' || f.key === 'reviewCount' ? 'number' : 'text'}
+              step={f.key === 'rating' ? '0.1' : undefined}
               className="w-full text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 focus:ring-2 focus:ring-blue-500 dark:text-slate-100"
             />
           </div>
@@ -127,7 +135,71 @@ export const BusinessIntelConfirmModal: React.FC<BusinessIntelConfirmModalProps>
               <span>{error}</span>
             </div>
           ) : data ? (
-            renderInputs()
+            <>
+              {data.duplicates && data.duplicates.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-300 mb-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Possible duplicate {data.duplicates.length > 1 ? 'leads' : 'lead'} found
+                  </div>
+                  <div className="space-y-1.5">
+                    {data.duplicates.map((d) => (
+                      <div key={d.id} className="text-[11px] text-amber-800 dark:text-amber-200 bg-white/60 dark:bg-slate-900/60 rounded-lg px-2.5 py-1.5 border border-amber-200 dark:border-amber-900">
+                        <span className="font-semibold">{d.companyName || '—'}</span>
+                        {d.status && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50">{d.status}</span>}
+                        <div className="text-[10px] text-amber-700/80 dark:text-amber-300/70">
+                          {d.contactPerson ? `${d.contactPerson} · ` : ''}
+                          {d.mobile ? `${d.mobile}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-amber-700/80 dark:text-amber-300/70">
+                    This business may already exist as a lead. Apply and review, or cancel to avoid a duplicate.
+                  </p>
+                </div>
+              )}
+              {renderInputs()}
+
+              {(draft.socialMediaLinks && draft.socialMediaLinks.length > 0) || (draft.services && draft.services.length > 0) ? (
+                <div className="space-y-3">
+                  {draft.socialMediaLinks && draft.socialMediaLinks.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                        Social Media
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {draft.socialMediaLinks.map((s) => (
+                          <a
+                            key={s}
+                            href={externalHref(s)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100"
+                          >
+                            {s.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 30)} ↗
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {draft.services && draft.services.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                        Services / Products ({draft.services.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {draft.services.map((s) => (
+                          <span key={s} className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </>
           ) : (
             <p className="text-sm text-slate-500 dark:text-slate-400">Ready to import.</p>
           )}

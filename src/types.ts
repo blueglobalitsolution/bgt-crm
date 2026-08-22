@@ -264,6 +264,7 @@ export interface Lead {
   aiSummaryGeneratedAt?: string;
   // Business profile (imported from Excel)
   jobId?: string;
+  placeId?: string;
   address?: string;
   rating?: number;
   reviewCount?: number;
@@ -299,6 +300,20 @@ export interface ExtractedBusinessInfo {
   confidence: number; // 0-100
   source: 'image' | 'gmb';
   placeId?: string;
+  socialMediaLinks?: string[];
+  services?: string[];
+  duplicates?: ExtractedLeadDuplicate[];
+}
+
+/** A possible existing-lead match detected during GMB extraction. */
+export interface ExtractedLeadDuplicate {
+  id: string;
+  companyName?: string;
+  contactPerson?: string;
+  mobile?: string;
+  email?: string;
+  status?: string;
+  createdAt?: string;
 }
 
 export interface ImportPreviewItem {

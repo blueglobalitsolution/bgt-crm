@@ -92,6 +92,28 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
     if (data.industry) setIndustry(data.industry);
     if (data.rating != null) setRating(String(data.rating));
     if (data.reviewCount != null) setReviewCount(String(data.reviewCount));
+    if (data.socialMediaLinks && data.socialMediaLinks.length > 0) {
+      data.socialMediaLinks.forEach((link) => {
+        const low = link.toLowerCase();
+        if (low.includes('facebook')) setFacebookUrl(link);
+        else if (low.includes('instagram')) setInstagramUrl(link);
+        else if (low.includes('linkedin')) setLinkedinUrl(link);
+        else if (low.includes('youtube')) setYoutubeUrl(link);
+      });
+    }
+    if (data.services && data.services.length > 0) {
+      setInterestedServices((prev) => {
+        const merged = [...prev];
+        data.services!.forEach((s) => {
+          if (!merged.includes(s)) merged.push(s);
+        });
+        return merged;
+      });
+    }
+    if (data.source === 'gmb') {
+      setLeadSource('Google');
+      if (data.placeId) setPlaceId(data.placeId);
+    }
     setIntelOpen(false);
     setIntelData(null);
     setGmbUrl('');
@@ -133,6 +155,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
 
   // Business profile
   const [jobId, setJobId] = useState('');
+  const [placeId, setPlaceId] = useState('');
   const [address, setAddress] = useState('');
   const [rating, setRating] = useState('');
   const [reviewCount, setReviewCount] = useState('');
@@ -175,6 +198,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       setNextFollowupNote(leadToEdit.nextFollowupNote || '');
       setRequirementNotes(leadToEdit.requirementNotes || '');
       setJobId(leadToEdit.jobId || '');
+      setPlaceId(leadToEdit.placeId || '');
       setAddress(leadToEdit.address || '');
       setRating(leadToEdit.rating != null ? String(leadToEdit.rating) : '');
       setReviewCount(leadToEdit.reviewCount != null ? String(leadToEdit.reviewCount) : '');
@@ -215,6 +239,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       setNextFollowupNote('Initial enquiry follow-up');
       setRequirementNotes('');
       setJobId('');
+      setPlaceId('');
       setAddress('');
       setRating('');
       setReviewCount('');
@@ -272,6 +297,7 @@ export const LeadFormModal: React.FC<LeadFormModalProps> = ({
       nextFollowupNote,
       requirementNotes,
       jobId: jobId.trim(),
+      placeId: placeId.trim(),
       address: address.trim(),
       rating: rating ? Number(rating) : undefined,
       reviewCount: reviewCount ? Number(reviewCount) : undefined,

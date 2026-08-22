@@ -12,6 +12,11 @@ import httpx
 from . import urlutil
 
 USER_AGENT = "BGT-CRM-WebsiteAudit/1.0 (+internal digital marketing website health checker)"
+# A real desktop Chrome UA so JS-heavy pages (Google Maps, GMB) serve the full UI.
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 _client = None
@@ -101,6 +106,76 @@ def fetch_html_playwright(url: str):
     finally:
         page.close()
         context.close()
+
+
+def render_page_visible(url: str, timeout_ms: int = 25000):
+    """Headless-render a URL and return visible body text + anchor links.
+
+    Used by the business-intel (Google My Business) extractor so DeepSeek can
+    see the fully rendered business panel. Best-effort: returns empty fields on
+    consent/bot pages or timeouts rather than raising.
+    """
+    browser = get_browser()
+    context = browser.new_context(
+        locale="en-US",
+        user_agent=BROWSER_USER_AGENT,
+        viewport={"width": 1280, "height": 900},
+        ignore_https_errors=True,
+    )
+    page = context.new_page()
+    start = time.time()
+    try:
+        try:
+            page.goto(url, timeout=timeout_ms, wait_until="networkidle")
+        except Exception:
+            # networkidle often never settles on Google Maps — fall back to
+            # domcontentloaded + a fixed settle wait.
+            try:
+                page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+            except Exception:
+                pass
+            page.wait_for_timeout(2500)
+        else:
+            page.wait_for_timeout(1200)
+
+        # Wait a little longer for the business panel to render (the map tiles
+        # load first; the place panel / "Directions" button appears after).
+        try:
+            page.wait_for_selector("button[aria-label='Directions']", timeout=6000)
+            page.wait_for_timeout(800)
+        except Exception:
+            page.wait_for_timeout(1500)
+
+        text = ""
+        links = []
+        try:
+            text = page.inner_text("body")[:30000]
+        except Exception:
+            text = ""
+        try:
+            links = page.eval_on_selector_all(
+                "a",
+                "els => els.map(e => ({href: e.href, text: (e.textContent||'').trim()}))",
+            )
+        except Exception:
+            links = []
+        return {
+            "text": text,
+            "links": links,
+            "final_url": page.url,
+            "elapsed_ms": int((time.time() - start) * 1000),
+        }
+    except Exception as exc:
+        return {"text": "", "links": [], "final_url": url, "error": str(exc)[:300]}
+    finally:
+        try:
+            page.close()
+        except Exception:
+            pass
+        try:
+            context.close()
+        except Exception:
+            pass
 
 
 def detect_rendering(base_url: str, render_js: bool) -> bool:
